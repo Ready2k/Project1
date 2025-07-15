@@ -54,12 +54,29 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
         setCurrentQuestions(response.questions);
         addMessage('ai', '', { questions: response.questions });
       } else if (response.type === 'flow') {
+        // Check if we're using fallback mode and show user-friendly message
+        if (response.flowData && response.flowData.isUsingFallback) {
+          addMessage('system', response.flowData.fallbackReason);
+        }
+        
         addMessage('ai', "Great! I've created a flow based on your requirements. You can review it and make adjustments as needed.");
         onFlowGenerated(response.flowData);
       }
     } catch (error) {
-      addMessage('ai', "I'm sorry, I encountered an error processing your request. Could you try rephrasing it?");
       console.error('AI Agent Error:', error);
+      
+      // Show user-friendly error message based on error type
+      let userMessage = "I'm sorry, I encountered an error processing your request.";
+      if (error.message.includes('404')) {
+        userMessage = "🌐 I'm having trouble connecting to the AI service due to browser security restrictions. Don't worry - I'm using my enhanced intelligence to help you build flows!";
+      } else if (error.message.includes('401')) {
+        userMessage = "🔑 There seems to be an issue with the API key. I'll use my built-in intelligence to help you create flows instead.";
+      } else if (error.message.includes('429')) {
+        userMessage = "⏱️ The AI service is currently busy. I'll use my enhanced capabilities to help you build flows right away!";
+      }
+      
+      addMessage('system', userMessage);
+      addMessage('ai', "Try asking me to create a specific type of flow, like 'Create an email validation flow' or 'Make a calculator flow'.");
     }
 
     setIsLoading(false);
@@ -173,10 +190,14 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
                 maxWidth: '80%',
                 padding: '8px 12px',
                 borderRadius: '12px',
-                background: message.type === 'user' ? '#007bff' : '#f8f9fa',
-                color: message.type === 'user' ? 'white' : '#333',
+                background: message.type === 'user' ? '#007bff' : 
+                          message.type === 'system' ? '#fff3cd' : '#f8f9fa',
+                color: message.type === 'user' ? 'white' : 
+                       message.type === 'system' ? '#856404' : '#333',
+                border: message.type === 'system' ? '1px solid #ffeaa7' : 'none',
                 fontSize: '14px',
-                lineHeight: '1.4'
+                lineHeight: '1.4',
+                fontWeight: message.type === 'system' ? '500' : 'normal'
               }}>
                 {message.content}
               </div>

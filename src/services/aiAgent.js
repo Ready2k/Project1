@@ -246,9 +246,17 @@ class AIFlowAgent {
       };
     }
     
+    const flowData = await this.generateFlow(intent);
+    
+    // Pass through fallback information if present
+    if (intent.isUsingFallback) {
+      flowData.isUsingFallback = true;
+      flowData.fallbackReason = intent.fallbackReason;
+    }
+    
     return {
       type: 'flow',
-      flowData: await this.generateFlow(intent)
+      flowData: flowData
     };
   }
 
@@ -371,18 +379,26 @@ class AIFlowAgent {
       console.error('🤖 AI parsing failed, falling back to mock:', error);
       console.error('🤖 Error details:', error.message, error.stack);
       
-      // Fallback to mock implementation
-      const keywords = this.extractKeywords(input);
-      const flowType = this.identifyFlowType(keywords);
-      const entities = this.extractEntities(input);
+      // Create user-friendly error message
+      let userMessage = '';
+      if (error.message.includes('404')) {
+        userMessage = '🌐 CORS Issue: Direct API calls to OpenAI are blocked by your browser for security. Using enhanced mock AI instead - it works great for flow building!';
+      } else if (error.message.includes('401')) {
+        userMessage = '🔑 API Key Issue: Your OpenAI API key appears to be invalid. Using enhanced mock AI instead.';
+      } else if (error.message.includes('429')) {
+        userMessage = '⏱️ Rate Limit: OpenAI API rate limit reached. Using enhanced mock AI instead.';
+      } else {
+        userMessage = `🤖 API Error: ${error.message}. Using enhanced mock AI instead.`;
+      }
       
+      // Fallback to enhanced mock implementation
+      const mockResult = this.parseIntentMock(input);
+      
+      // Add error info to the result so the UI can display it
       return {
-        flowType,
-        entities,
-        keywords,
-        confidence: 0.6, // Lower confidence for fallback
-        originalInput: input,
-        partialFlow: this.createPartialFlow(flowType, entities)
+        ...mockResult,
+        fallbackReason: userMessage,
+        isUsingFallback: true
       };
     }
   }
