@@ -233,8 +233,7 @@ function App() {
             console.error('Import error:', error);
             alert(`Failed to import workflows: ${error.message}`);
         }
-        // eslint-disable-next-line no-use-before-define
-    }, [convertWorkflowToReactFlow, setNodes, setEdges]);
+    }, [setNodes, setEdges]);
 
 
 
