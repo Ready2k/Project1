@@ -272,8 +272,12 @@ class AIFlowAgent {
 
     // Use real AI for intent parsing
     try {
+      console.log('🤖 Using real AI for intent parsing, provider:', this.config.provider);
       const aiResponse = await this.callAI(this.createIntentPrompt(input));
+      console.log('🤖 AI response received:', aiResponse?.substring(0, 100) + '...');
+      
       const parsedIntent = this.parseAIIntentResponse(aiResponse);
+      console.log('🤖 Parsed intent:', parsedIntent);
       
       return {
         ...parsedIntent,
@@ -282,7 +286,9 @@ class AIFlowAgent {
         partialFlow: this.createPartialFlow(parsedIntent.flowType, parsedIntent.entities)
       };
     } catch (error) {
-      console.error('AI parsing failed, falling back to mock:', error);
+      console.error('🤖 AI parsing failed, falling back to mock:', error);
+      console.error('🤖 Error details:', error.message, error.stack);
+      
       // Fallback to mock implementation
       const keywords = this.extractKeywords(input);
       const flowType = this.identifyFlowType(keywords);
