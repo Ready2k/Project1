@@ -17,6 +17,8 @@ import FunctionNode from './nodes/FunctionNode';
 import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import ValidationPanel from './components/ValidationPanel';
+import AIChat from './components/AIChat';
+import AISettings from './components/AISettings';
 import { validateFlow, detectOverlappingNodes } from './utils/validation';
 import './App.css';
 
@@ -62,6 +64,11 @@ function App() {
     const [currentFlowInfo, setCurrentFlowInfo] = useState(null);
     const [validation, setValidation] = useState(null);
     const [showValidation, setShowValidation] = useState(false);
+  
+    const [showAIChat, setShowAIChat] = useState(false);
+    const [showAISettings, setShowAISettings] = useState(false);
+    const [aiConfig, setAiConfig] = useState(null);
+    // eslint-disable-next-line no-unused-vars
     const [highlightedNode, setHighlightedNode] = useState(null);
 
     const onConnect = useCallback(
@@ -162,6 +169,7 @@ function App() {
                         return match;
                     });
 
+                    // eslint-disable-next-line no-eval
                     const result = eval(condition);
                     results.push({
                         nodeId: node.id,
@@ -200,6 +208,7 @@ function App() {
             } else if (node.type === 'function') {
                 // Execute function code
                 try {
+                    // eslint-disable-next-line no-new-func
                     const func = new Function(...Object.keys(currentVars), node.data.code);
                     const result = func(...Object.values(currentVars));
 
@@ -359,6 +368,17 @@ function App() {
         }
     }, [setNodes, setEdges]);
 
+    // Handle AI-generated flow
+    const handleAIFlowGenerated = useCallback((flowData) => {
+        loadFlow(flowData);
+        setShowAIChat(false);
+        
+        // Show a success message
+        setTimeout(() => {
+            alert(`✨ AI Flow "${flowData.name}" has been created! You can now test and modify it as needed.`);
+        }, 500);
+    }, [loadFlow]);
+
     // Showcase test cases
     const loadTestCase = useCallback((testCase) => {
         loadFlow(testCase);
@@ -483,6 +503,8 @@ function App() {
                 validation={validation}
                 showValidation={showValidation}
                 setShowValidation={setShowValidation}
+                onShowAIChat={() => setShowAIChat(true)}
+                onShowAISettings={() => setShowAISettings(true)}
             />
             <div className="app-content">
                 <Sidebar
@@ -590,6 +612,26 @@ function App() {
                     )}
                 </div>
             </div>
+
+            {/* AI Settings Modal */}
+            {showAISettings && (
+                <AISettings
+                    onClose={() => setShowAISettings(false)}
+                    onSave={(config) => {
+                        setAiConfig(config);
+                        setShowAISettings(false);
+                    }}
+                />
+            )}
+
+            {/* AI Chat Panel */}
+            {showAIChat && (
+                <AIChat
+                    onFlowGenerated={handleAIFlowGenerated}
+                    onClose={() => setShowAIChat(false)}
+                    aiConfig={aiConfig}
+                />
+            )}
         </div>
     );
 }

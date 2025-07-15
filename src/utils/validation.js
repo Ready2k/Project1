@@ -207,11 +207,11 @@ export const autoLayout = (nodes, edges) => {
   positioned.set(startNode.id, { x: 100, y: 100 });
   
   // BFS layout from start node
-  const queue = [{ nodeId: startNode.id, level: 0, branch: 0 }];
+  const queue = [{ nodeId: startNode.id, level: 0 }];
   const levelNodes = new Map(); // level -> nodes at that level
   
   while (queue.length > 0) {
-    const { nodeId, level, branch } = queue.shift();
+    const { nodeId, level } = queue.shift();
     
     if (visited.has(nodeId)) continue;
     visited.add(nodeId);
@@ -227,8 +227,7 @@ export const autoLayout = (nodes, edges) => {
       if (!visited.has(edge.target)) {
         queue.push({ 
           nodeId: edge.target, 
-          level: level + 1, 
-          branch: index 
+          level: level + 1
         });
       }
     });

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 
-const Toolbar = ({ nodes, edges, onLoadFlow, currentFlowInfo, validation, showValidation, setShowValidation }) => {
+const Toolbar = ({ nodes, edges, onLoadFlow, currentFlowInfo, validation, showValidation, setShowValidation, onShowAIChat, onShowAISettings }) => {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [flowName, setFlowName] = useState('');
   const fileInputRef = useRef(null);
@@ -190,6 +190,66 @@ const Toolbar = ({ nodes, edges, onLoadFlow, currentFlowInfo, validation, showVa
           }}
         >
           📂 Load Flow
+        </button>
+
+        {/* AI Settings Button */}
+        <button
+          onClick={onShowAISettings}
+          style={{
+            background: 'rgba(255,255,255,0.2)',
+            border: '1px solid rgba(255,255,255,0.3)',
+            color: 'white',
+            padding: '6px 10px',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = 'rgba(255,255,255,0.3)';
+            e.target.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = 'rgba(255,255,255,0.2)';
+            e.target.style.transform = 'translateY(0)';
+          }}
+          title="Configure AI Provider"
+        >
+          ⚙️ AI
+        </button>
+
+        {/* AI Chat Button */}
+        <button
+          onClick={onShowAIChat}
+          style={{
+            background: 'linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%)',
+            border: '1px solid rgba(255,255,255,0.3)',
+            color: 'white',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.transform = 'translateY(-1px)';
+            e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.transform = 'translateY(0)';
+            e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+          }}
+        >
+          🤖 AI Assistant
         </button>
 
         {/* Validation Status */}

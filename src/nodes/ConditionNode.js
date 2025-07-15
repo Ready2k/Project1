@@ -61,6 +61,7 @@ const ConditionNode = ({ data, id }) => {
         return testVars.hasOwnProperty(match) ? JSON.stringify(testVars[match]) : match;
       });
 
+      // eslint-disable-next-line no-eval
       const result = eval(testCondition);
       setConditionError('');
       setPreviewResult(`Preview: ${result} (with test data)`);
