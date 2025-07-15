@@ -252,22 +252,104 @@ class AIFlowAgent {
     };
   }
 
+  // Enhanced mock implementation for better intelligence
+  parseIntentMock(input) {
+    console.log('🤖 Using enhanced mock AI for parsing:', input);
+    
+    const keywords = this.extractKeywords(input);
+    const flowType = this.identifyFlowType(keywords);
+    const entities = this.extractEntities(input);
+    
+    // Enhanced flow name generation
+    const flowName = this.generateFlowName(input, flowType);
+    
+    // Enhanced entity extraction with better defaults
+    this.enhanceEntities(entities, input, flowType);
+    
+    return {
+      flowType,
+      entities,
+      keywords,
+      confidence: 0.85, // Higher confidence for enhanced mock
+      originalInput: input,
+      flowName,
+      partialFlow: this.createPartialFlow(flowType, entities)
+    };
+  }
+
+  generateFlowName(input, flowType) {
+    const lowerInput = input.toLowerCase();
+    
+    // Extract key concepts for naming
+    if (lowerInput.includes('email')) return 'Email Validation Flow';
+    if (lowerInput.includes('password')) return 'Password Strength Check';
+    if (lowerInput.includes('age')) return 'Age Verification Flow';
+    if (lowerInput.includes('calculator') || lowerInput.includes('calculate')) return 'Calculator Flow';
+    if (lowerInput.includes('grade')) return 'Grade Calculator';
+    if (lowerInput.includes('discount')) return 'Discount Calculator';
+    if (lowerInput.includes('tax')) return 'Tax Calculator';
+    if (lowerInput.includes('login')) return 'Login Validation';
+    if (lowerInput.includes('registration')) return 'Registration Flow';
+    
+    // Fallback based on flow type
+    switch (flowType) {
+      case 'validation': return 'Validation Flow';
+      case 'calculation': return 'Calculation Flow';
+      case 'decision': return 'Decision Flow';
+      default: return 'Custom Workflow';
+    }
+  }
+
+  enhanceEntities(entities, input, flowType) {
+    const lowerInput = input.toLowerCase();
+    
+    // Add specific validation rules based on context
+    if (flowType === 'validation') {
+      if (lowerInput.includes('email')) {
+        entities.validationRule = '/^[^@]+@[^@]+\\.[^@]+$/.test(email)';
+        if (!entities.inputs) entities.inputs = [];
+        entities.inputs.push({ name: 'email', defaultValue: 'user@example.com' });
+      } else if (lowerInput.includes('password')) {
+        entities.validationRule = 'password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password)';
+        if (!entities.inputs) entities.inputs = [];
+        entities.inputs.push({ name: 'password', defaultValue: 'MyPassword123!' });
+      } else if (lowerInput.includes('age')) {
+        entities.validationRule = 'age >= 18';
+        if (!entities.inputs) entities.inputs = [];
+        entities.inputs.push({ name: 'age', defaultValue: '25' });
+      }
+    }
+    
+    // Add specific formulas based on context
+    if (flowType === 'calculation') {
+      if (lowerInput.includes('discount')) {
+        entities.formula = 'return price * (1 - discount / 100);';
+        if (!entities.inputs) entities.inputs = [];
+        entities.inputs.push({ name: 'price', defaultValue: '100' });
+        entities.inputs.push({ name: 'discount', defaultValue: '10' });
+      } else if (lowerInput.includes('tax')) {
+        entities.formula = 'return price * (1 + taxRate / 100);';
+        if (!entities.inputs) entities.inputs = [];
+        entities.inputs.push({ name: 'price', defaultValue: '100' });
+        entities.inputs.push({ name: 'taxRate', defaultValue: '8.5' });
+      } else if (lowerInput.includes('grade')) {
+        entities.formula = 'return score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : score >= 60 ? "D" : "F";';
+        if (!entities.inputs) entities.inputs = [];
+        entities.inputs.push({ name: 'score', defaultValue: '85' });
+      }
+    }
+    
+    // Ensure we have at least one input if none detected
+    if (!entities.inputs || entities.inputs.length === 0) {
+      entities.inputs = [{ name: 'value', defaultValue: '10' }];
+    }
+  }
+
   // Parse user intent from natural language
   async parseIntent(input) {
     if (this.config.provider === 'mock') {
-      // Use mock implementation for testing
-      const keywords = this.extractKeywords(input);
-      const flowType = this.identifyFlowType(keywords);
-      const entities = this.extractEntities(input);
-      
-      return {
-        flowType,
-        entities,
-        keywords,
-        confidence: 0.8,
-        originalInput: input,
-        partialFlow: this.createPartialFlow(flowType, entities)
-      };
+      // Use enhanced mock implementation
+      return this.parseIntentMock(input);
     }
 
     // Use real AI for intent parsing
@@ -399,26 +481,44 @@ Be specific and practical in your analysis.`;
 
   // OpenAI API call
   async callOpenAI(prompt) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.config.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: this.config.model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: this.config.temperature,
-        max_tokens: this.config.maxTokens
-      })
-    });
+    console.log('🤖 Calling OpenAI API for parsing...');
+    console.log('🤖 URL: https://api.openai.com/v1/chat/completions');
+    console.log('🤖 Model:', this.config.model);
+    console.log('🤖 API Key format:', this.config.apiKey ? `${this.config.apiKey.substring(0, 7)}...` : 'MISSING');
+    console.log('🤖 Prompt length:', prompt.length);
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: this.config.model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: this.config.temperature,
+          max_tokens: this.config.maxTokens
+        })
+      });
+
+      console.log('🤖 Response status:', response.status);
+      console.log('🤖 Response URL:', response.url);
+      console.log('🤖 Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('🤖 API Error Response:', errorText);
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('🤖 API Success! Response:', data);
+      return data.choices[0].message.content;
+    } catch (error) {
+      console.error('🤖 callOpenAI failed:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
   }
 
   // Claude API call
