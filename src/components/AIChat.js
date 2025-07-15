@@ -59,8 +59,23 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
           addMessage('system', response.flowData.fallbackReason);
         }
         
-        addMessage('ai', "Great! I've created a flow based on your requirements. You can review it and make adjustments as needed.");
-        onFlowGenerated(response.flowData);
+        // Show the AI's thinking process
+        if (response.auditTrail && response.auditTrail.length > 0) {
+          response.auditTrail.forEach((step, index) => {
+            setTimeout(() => {
+              addMessage('ai', step);
+            }, index * 800); // Stagger the messages
+          });
+          
+          // Final success message after all audit steps
+          setTimeout(() => {
+            addMessage('ai', "Perfect! I've created your flow. You can see it on the canvas and test it right away. Feel free to ask me to modify anything or create another flow!");
+            onFlowGenerated(response.flowData);
+          }, response.auditTrail.length * 800 + 500);
+        } else {
+          addMessage('ai', "Great! I've created a flow based on your requirements. You can review it and make adjustments as needed.");
+          onFlowGenerated(response.flowData);
+        }
       }
     } catch (error) {
       console.error('AI Agent Error:', error);

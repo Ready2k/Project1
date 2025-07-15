@@ -371,7 +371,8 @@ function App() {
     // Handle AI-generated flow
     const handleAIFlowGenerated = useCallback((flowData) => {
         loadFlow(flowData);
-        setShowAIChat(false);
+        // Don't auto-close the AI chat - let user close it manually
+        // setShowAIChat(false);
         
         // Show a success message
         setTimeout(() => {

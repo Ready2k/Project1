@@ -246,6 +246,9 @@ class AIFlowAgent {
       };
     }
     
+    // Generate audit trail for conversational feedback
+    const auditTrail = this.generateAuditTrail(intent);
+    
     const flowData = await this.generateFlow(intent);
     
     // Pass through fallback information if present
@@ -256,8 +259,51 @@ class AIFlowAgent {
     
     return {
       type: 'flow',
-      flowData: flowData
+      flowData: flowData,
+      auditTrail: auditTrail
     };
+  }
+
+  // Generate conversational audit trail showing AI's thinking process
+  generateAuditTrail(intent) {
+    const trail = [];
+    
+    // Step 1: Understanding the request
+    trail.push(`🧠 I understand you want to create a ${intent.flowType} flow. Let me analyze the requirements...`);
+    
+    // Step 2: Identifying inputs
+    if (intent.entities.inputs && intent.entities.inputs.length > 0) {
+      const inputNames = intent.entities.inputs.map(input => input.name).join(', ');
+      trail.push(`📝 I've identified these inputs: ${inputNames}. Setting up input nodes...`);
+    }
+    
+    // Step 3: Flow type specific logic
+    switch (intent.flowType) {
+      case 'validation':
+        if (intent.entities.validationRule) {
+          trail.push(`✅ Adding validation logic: "${intent.entities.validationRule}". This will check your data and provide TRUE/FALSE paths.`);
+        }
+        break;
+      case 'calculation':
+        if (intent.entities.formula) {
+          trail.push(`🧮 Setting up calculation logic. The formula will process your inputs and return the result.`);
+        }
+        break;
+      case 'decision':
+        trail.push(`🤔 Creating decision logic with branching paths based on your conditions.`);
+        break;
+      default:
+        trail.push(`⚙️ Building a custom workflow with the logic you specified.`);
+    }
+    
+    // Step 4: Flow structure
+    const nodeCount = this.estimateNodeCount(intent.flowType, intent.entities);
+    trail.push(`🔗 Connecting ${nodeCount} nodes together to create your complete workflow...`);
+    
+    // Step 5: Final setup
+    trail.push(`🎯 Adding start and end points to make your flow ready for testing...`);
+    
+    return trail;
   }
 
   // Enhanced mock implementation for better intelligence
