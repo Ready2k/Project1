@@ -56,8 +56,457 @@ const initialEdges = [
 let nodeId = 3;
 
 function App() {
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    // Multi-tab workflow system
+    const [workflows, setWorkflows] = useState([
+        {
+            id: 'default',
+            name: 'Main Flow',
+            nodes: initialNodes,
+            edges: initialEdges,
+            isActive: true
+        }
+    ]);
+    const [activeWorkflowId, setActiveWorkflowId] = useState('default');
+
+    // Get current workflow
+    const currentWorkflow = workflows.find(w => w.id === activeWorkflowId) || workflows[0];
+    const [nodes, setNodes, onNodesChange] = useNodesState(currentWorkflow.nodes);
+    const [edges, setEdges, onEdgesChange] = useEdgesState(currentWorkflow.edges);
+
+    // Sync current workflow state when nodes/edges change
+    useEffect(() => {
+        setWorkflows(prev => prev.map(workflow => 
+            workflow.id === activeWorkflowId 
+                ? { ...workflow, nodes, edges }
+                : workflow
+        ));
+    }, [nodes, edges, activeWorkflowId]);
+
+    // Switch to a different workflow tab
+    const switchWorkflow = useCallback((workflowId) => {
+        console.log(`Switching to workflow ID: "${workflowId}"`);
+        const workflow = workflows.find(w => w.id === workflowId);
+        if (workflow) {
+            console.log(`Found workflow:`, workflow);
+            console.log(`Workflow name: "${workflow.name}"`);
+            console.log(`Workflow nodes:`, workflow.nodes);
+            setActiveWorkflowId(workflowId);
+            setNodes(workflow.nodes);
+            setEdges(workflow.edges);
+            setCurrentFlowInfo(null); // Clear flow info when switching
+            setExecutionPath([]); // Clear execution path
+        } else {
+            console.error(`Workflow with ID "${workflowId}" not found in:`, workflows);
+        }
+    }, [workflows, setNodes, setEdges]);
+
+    // Add new workflow tab
+    const addWorkflow = useCallback((name, nodes = initialNodes, edges = initialEdges) => {
+        const newId = `workflow_${Date.now()}`;
+        const newWorkflow = {
+            id: newId,
+            name: name,
+            nodes: nodes,
+            edges: edges,
+            isActive: false
+        };
+        
+        setWorkflows(prev => [...prev, newWorkflow]);
+        switchWorkflow(newId);
+        return newId;
+    }, [switchWorkflow]);
+
+    // Remove workflow tab
+    const removeWorkflow = useCallback((workflowId) => {
+        if (workflows.length <= 1) {
+            alert('Cannot remove the last workflow tab.');
+            return;
+        }
+        
+        setWorkflows(prev => {
+            const filtered = prev.filter(w => w.id !== workflowId);
+            // If removing active workflow, switch to first remaining
+            if (workflowId === activeWorkflowId) {
+                const firstWorkflow = filtered[0];
+                setActiveWorkflowId(firstWorkflow.id);
+                setNodes(firstWorkflow.nodes);
+                setEdges(firstWorkflow.edges);
+            }
+            return filtered;
+        });
+    }, [workflows, activeWorkflowId, setNodes, setEdges]);
+
+    // Import workflows from JSON - single canvas approach (this works!)
+    const importWorkflows = useCallback((jsonData) => {
+        try {
+            let workflowsData = [];
+            
+            // Handle both single workflow and array of workflows
+            if (Array.isArray(jsonData)) {
+                workflowsData = jsonData;
+            } else if (jsonData.Id || jsonData.id) {
+                // Single workflow object
+                workflowsData = [jsonData];
+            } else {
+                throw new Error('Invalid workflow format');
+            }
+
+            console.log(`Importing ${workflowsData.length} workflows on single canvas`);
+            
+            // Create all workflows on one canvas with clear separation
+            const allNodes = [];
+            const allEdges = [];
+            const workflowSpacing = 700; // Space between workflows
+            let currentX = 100;
+            
+            workflowsData.forEach((workflowData, index) => {
+                console.log(`Processing workflow ${index + 1}: "${workflowData.id}"`);
+                
+                // Generate nodes and edges for this workflow
+                const { nodes: workflowNodes, edges: workflowEdges } = convertWorkflowToReactFlow(workflowData);
+                
+                // Add a title node for each workflow
+                const titleNode = {
+                    id: `title_${index + 1}`,
+                    type: 'input',
+                    position: { x: currentX, y: 10 },
+                    data: { 
+                        label: `Rule ${index + 1}`,
+                        variable: `rule${index + 1}_title`,
+                        value: `Original ID: ${workflowData.id}`
+                    }
+                };
+                
+                // Offset workflow nodes
+                const offsetNodes = workflowNodes.map(node => ({
+                    ...node,
+                    id: `rule${index + 1}_${node.id}`,
+                    position: {
+                        x: node.position.x + currentX,
+                        y: node.position.y + 80 // Leave space for title
+                    }
+                }));
+                
+                // Update edge IDs
+                const offsetEdges = workflowEdges.map(edge => ({
+                    ...edge,
+                    id: `rule${index + 1}_${edge.id}`,
+                    source: `rule${index + 1}_${edge.source}`,
+                    target: `rule${index + 1}_${edge.target}`
+                }));
+                
+                // Add separator line (visual divider)
+                if (index > 0) {
+                    const separatorNode = {
+                        id: `separator_${index}`,
+                        type: 'input',
+                        position: { x: currentX - 50, y: 200 },
+                        data: { 
+                            label: '│',
+                            variable: 'separator',
+                            value: '│'
+                        }
+                    };
+                    allNodes.push(separatorNode);
+                }
+                
+                allNodes.push(titleNode, ...offsetNodes);
+                allEdges.push(...offsetEdges);
+                
+                console.log(`Added Rule ${index + 1} at x=${currentX} with start node: "${offsetNodes.find(n => n.type === 'start')?.data?.label}"`);
+                
+                currentX += workflowSpacing;
+            });
+            
+            // Replace current canvas
+            setNodes(allNodes);
+            setEdges(allEdges);
+            setCurrentFlowInfo({
+                name: `${workflowsData.length} Imported Rules`,
+                createdAt: new Date().toISOString()
+            });
+            
+            console.log(`Successfully imported ${workflowsData.length} workflows on single canvas`);
+            alert(`Successfully imported ${workflowsData.length} workflow(s)!\n\nEach workflow is labeled as "Rule 1", "Rule 2", etc.\nScroll horizontally to see all workflows.`);
+            
+        } catch (error) {
+            console.error('Import error:', error);
+            alert(`Failed to import workflows: ${error.message}`);
+        }
+    }, [setNodes, setEdges]);
+
+    // Create a completely independent workflow from JSON data
+    const createIndependentWorkflow = useCallback((workflowData, index) => {
+        console.log(`Creating independent workflow ${index + 1} from:`, workflowData);
+        
+        // Generate unique tab name
+        const tabName = `Rule${index + 1}`;
+        
+        // Generate unique workflow ID
+        const uniqueId = `workflow_${index}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Convert this specific workflow data to ReactFlow format
+        const { nodes, edges } = convertWorkflowToReactFlow(workflowData);
+        
+        console.log(`Generated ${nodes.length} nodes and ${edges.length} edges for ${tabName}`);
+        
+        return {
+            id: uniqueId,
+            name: tabName,
+            nodes: nodes,
+            edges: edges,
+            isActive: false,
+            imported: true,
+            originalData: workflowData,
+            createdAt: new Date().toISOString()
+        };
+    }, []);
+
+    // Convert your workflow format to ReactFlow format
+    const convertWorkflowToReactFlow = useCallback((workflowData) => {
+        const nodes = [];
+        const edges = [];
+        let nodeIdCounter = 1;
+        
+        // Handle endpoint type objects
+        if (workflowData.type === 'endpoint') {
+            // Create start node named after the id
+            const startNodeId = `start_${nodeIdCounter++}`;
+            nodes.push({
+                id: startNodeId,
+                type: 'start',
+                position: { x: 200, y: 50 },
+                data: { label: workflowData.id }
+            });
+            
+            // Create function node named after the label with details
+            const functionNodeId = `function_${nodeIdCounter++}`;
+            const functionCode = `// Queue: ${workflowData.details.queueName}\n// Is Default: ${workflowData.details.isDefault}\n\nreturn {\n  queueName: "${workflowData.details.queueName}",\n  isDefault: ${workflowData.details.isDefault}\n};`;
+            
+            nodes.push({
+                id: functionNodeId,
+                type: 'function',
+                position: { x: 200, y: 200 },
+                data: {
+                    label: workflowData.label,
+                    code: functionCode
+                }
+            });
+            
+            // Create end node
+            const endNodeId = `end_${nodeIdCounter++}`;
+            nodes.push({
+                id: endNodeId,
+                type: 'end',
+                position: { x: 200, y: 350 },
+                data: { label: 'End' }
+            });
+            
+            // Connect the nodes
+            edges.push({
+                id: `edge_${startNodeId}_${functionNodeId}`,
+                source: startNodeId,
+                target: functionNodeId
+            });
+            
+            edges.push({
+                id: `edge_${functionNodeId}_${endNodeId}`,
+                source: functionNodeId,
+                target: endNodeId
+            });
+            
+            return { nodes, edges };
+        }
+
+        // Handle decision type objects
+        if (workflowData.type === 'decision') {
+            // Create start node named after the id
+            const startNodeId = `start_${nodeIdCounter++}`;
+            nodes.push({
+                id: startNodeId,
+                type: 'start',
+                position: { x: 200, y: 50 },
+                data: { label: workflowData.id }
+            });
+            
+            let previousNodeId = startNodeId;
+            let yPosition = 200;
+            let lastConditionNodeId = null;
+            
+            // Create condition nodes for each expression (Option A - in sequence)
+            const expressions = workflowData.details.expressions || [];
+            
+            expressions.forEach((expression, index) => {
+                const conditionNodeId = `condition_${nodeIdCounter++}`;
+                lastConditionNodeId = conditionNodeId; // Track the last condition node
+                
+                nodes.push({
+                    id: conditionNodeId,
+                    type: 'condition',
+                    position: { x: 200, y: yPosition },
+                    data: {
+                        label: workflowData.label, // Remove the (${index + 1}) part to match expected output
+                        condition: expression
+                    }
+                });
+                
+                // Connect from previous node
+                edges.push({
+                    id: `edge_${previousNodeId}_${conditionNodeId}`,
+                    source: previousNodeId,
+                    target: conditionNodeId
+                });
+                
+                // Create TRUE end node for this condition
+                const trueEndNodeId = `end_true_${nodeIdCounter++}`;
+                nodes.push({
+                    id: trueEndNodeId,
+                    type: 'end',
+                    position: { x: 400, y: yPosition },
+                    data: { label: `TRUE: Condition ${index + 1}` }
+                });
+                
+                // Connect TRUE path
+                edges.push({
+                    id: `edge_${conditionNodeId}_${trueEndNodeId}`,
+                    source: conditionNodeId,
+                    target: trueEndNodeId,
+                    sourceHandle: 'true'
+                });
+                
+                previousNodeId = conditionNodeId;
+                yPosition += 150;
+            });
+            
+            // Create final FALSE end node (if all conditions fail)
+            const falseEndNodeId = `end_false_${nodeIdCounter++}`;
+            nodes.push({
+                id: falseEndNodeId,
+                type: 'end',
+                position: { x: 200, y: yPosition },
+                data: { label: 'FALSE: All conditions failed' }
+            });
+            
+            // Connect FALSE path from last condition
+            if (expressions.length > 0 && lastConditionNodeId) {
+                edges.push({
+                    id: `edge_${lastConditionNodeId}_${falseEndNodeId}`,
+                    source: lastConditionNodeId,
+                    target: falseEndNodeId,
+                    sourceHandle: 'false'
+                });
+            } else {
+                // If no expressions, connect directly from start
+                edges.push({
+                    id: `edge_${startNodeId}_${falseEndNodeId}`,
+                    source: startNodeId,
+                    target: falseEndNodeId
+                });
+            }
+            
+            return { nodes, edges };
+        }
+        
+        // Handle complex workflow objects (existing logic for later)
+        if (workflowData.Id && workflowData.Evaluations) {
+            // Create start node
+            const startNodeId = `start_${nodeIdCounter++}`;
+            nodes.push({
+                id: startNodeId,
+                type: 'start',
+                position: { x: 200, y: 50 },
+                data: { label: `Start: ${workflowData.Name}` }
+            });
+            
+            let previousNodeId = startNodeId;
+            let yPosition = 150;
+            
+            // Process evaluations in order
+            const evaluations = workflowData.Evaluations || [];
+            evaluations.sort((a, b) => (a.Order || 0) - (b.Order || 0));
+            
+            evaluations.forEach((evaluation, index) => {
+                const conditionNodeId = `condition_${nodeIdCounter++}`;
+                
+                // Create condition node
+                nodes.push({
+                    id: conditionNodeId,
+                    type: 'condition',
+                    position: { x: 200, y: yPosition },
+                    data: {
+                        label: `Condition ${evaluation.Order || index}`,
+                        condition: evaluation.Expression || 'true'
+                    }
+                });
+                
+                // Connect from previous node
+                edges.push({
+                    id: `edge_${previousNodeId}_${conditionNodeId}`,
+                    source: previousNodeId,
+                    target: conditionNodeId
+                });
+                
+                // Create TRUE path endpoint
+                if (evaluation.Result && evaluation.Result.ResultValue && evaluation.Result.ResultValue.EndPoint) {
+                    const trueEndNodeId = `end_true_${nodeIdCounter++}`;
+                    nodes.push({
+                        id: trueEndNodeId,
+                        type: 'end',
+                        position: { x: 400, y: yPosition },
+                        data: { 
+                            label: `TRUE: ${evaluation.Result.ResultValue.EndPoint.Qname || 'Endpoint'}` 
+                        }
+                    });
+                    
+                    edges.push({
+                        id: `edge_${conditionNodeId}_${trueEndNodeId}`,
+                        source: conditionNodeId,
+                        target: trueEndNodeId,
+                        sourceHandle: 'true'
+                    });
+                }
+                
+                previousNodeId = conditionNodeId;
+                yPosition += 150;
+            });
+            
+            // Create default result endpoint (FALSE path from last condition)
+            if (workflowData.DefaultResult && workflowData.DefaultResult.ResultValue && workflowData.DefaultResult.ResultValue.EndPoint) {
+                const defaultEndNodeId = `end_default_${nodeIdCounter++}`;
+                nodes.push({
+                    id: defaultEndNodeId,
+                    type: 'end',
+                    position: { x: 200, y: yPosition },
+                    data: { 
+                        label: `DEFAULT: ${workflowData.DefaultResult.ResultValue.EndPoint.Qname || 'Default Endpoint'}` 
+                    }
+                });
+                
+                // Connect from last condition's FALSE path
+                if (evaluations.length > 0) {
+                    const lastConditionId = `condition_${evaluations.length}`;
+                    edges.push({
+                        id: `edge_${lastConditionId}_${defaultEndNodeId}`,
+                        source: lastConditionId,
+                        target: defaultEndNodeId,
+                        sourceHandle: 'false'
+                    });
+                } else {
+                    // If no evaluations, connect directly from start
+                    edges.push({
+                        id: `edge_${startNodeId}_${defaultEndNodeId}`,
+                        source: startNodeId,
+                        target: defaultEndNodeId
+                    });
+                }
+            }
+            
+            return { nodes, edges };
+        }
+        
+        // Fallback for unknown formats
+        throw new Error(`Unsupported workflow format. Expected 'endpoint' type or workflow with 'Id' and 'Evaluations'.`);
+    }, []);
     const [reactFlowInstance, setReactFlowInstance] = useState(null);
     const [executionPath, setExecutionPath] = useState([]);
     const [isExecuting, setIsExecuting] = useState(false);
@@ -500,6 +949,7 @@ function App() {
                 nodes={nodes}
                 edges={edges}
                 onLoadFlow={loadFlow}
+                onImportWorkflows={importWorkflows}
                 currentFlowInfo={currentFlowInfo}
                 validation={validation}
                 showValidation={showValidation}
@@ -507,6 +957,119 @@ function App() {
                 onShowAIChat={() => setShowAIChat(true)}
                 onShowAISettings={() => setShowAISettings(true)}
             />
+
+            {/* Workflow Tabs */}
+            {workflows.length > 1 && (
+                <div style={{
+                    display: 'flex',
+                    background: '#f8f9fa',
+                    borderBottom: '1px solid #e1e5e9',
+                    padding: '0 10px',
+                    overflowX: 'auto',
+                    minHeight: '40px',
+                    alignItems: 'center'
+                }}>
+                    {workflows.map((workflow) => (
+                        <div
+                            key={workflow.id}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                background: workflow.id === activeWorkflowId ? 'white' : 'transparent',
+                                border: workflow.id === activeWorkflowId ? '1px solid #e1e5e9' : '1px solid transparent',
+                                borderBottom: workflow.id === activeWorkflowId ? '1px solid white' : '1px solid transparent',
+                                borderRadius: '6px 6px 0 0',
+                                padding: '6px 12px',
+                                margin: '0 2px',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                fontWeight: workflow.id === activeWorkflowId ? 'bold' : 'normal',
+                                color: workflow.id === activeWorkflowId ? '#333' : '#666',
+                                maxWidth: '200px',
+                                whiteSpace: 'nowrap',
+                                position: 'relative',
+                                marginBottom: workflow.id === activeWorkflowId ? '-1px' : '0'
+                            }}
+                            onClick={() => switchWorkflow(workflow.id)}
+                            title={workflow.name}
+                        >
+                            <span style={{ 
+                                overflow: 'hidden', 
+                                textOverflow: 'ellipsis',
+                                marginRight: workflows.length > 1 ? '8px' : '0'
+                            }}>
+                                {workflow.imported ? '📥 ' : ''}
+                                {workflow.name}
+                            </span>
+                            
+                            {workflows.length > 1 && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeWorkflow(workflow.id);
+                                    }}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#999',
+                                        cursor: 'pointer',
+                                        fontSize: '14px',
+                                        padding: '0',
+                                        marginLeft: '4px',
+                                        width: '16px',
+                                        height: '16px',
+                                        borderRadius: '50%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.background = '#ff4757';
+                                        e.target.style.color = 'white';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.background = 'none';
+                                        e.target.style.color = '#999';
+                                    }}
+                                    title="Close tab"
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                    
+                    {/* Add New Tab Button */}
+                    <button
+                        onClick={() => addWorkflow('New Flow')}
+                        style={{
+                            background: 'none',
+                            border: '1px solid #e1e5e9',
+                            color: '#666',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            marginLeft: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.background = '#f8f9fa';
+                            e.target.style.borderColor = '#007bff';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.background = 'none';
+                            e.target.style.borderColor = '#e1e5e9';
+                        }}
+                        title="Add new workflow tab"
+                    >
+                        + New Tab
+                    </button>
+                </div>
+            )}
+
             <div className="app-content">
                 <Sidebar
                     nodes={nodes}

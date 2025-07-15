@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 
-const Toolbar = ({ nodes, edges, onLoadFlow, currentFlowInfo, validation, showValidation, setShowValidation, onShowAIChat, onShowAISettings }) => {
+const Toolbar = ({ nodes, edges, onLoadFlow, onImportWorkflows, currentFlowInfo, validation, showValidation, setShowValidation, onShowAIChat, onShowAISettings }) => {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [flowName, setFlowName] = useState('');
   const fileInputRef = useRef(null);
+  const importFileInputRef = useRef(null);
 
   const saveFlow = () => {
     if (!flowName.trim()) {
@@ -63,6 +64,25 @@ const Toolbar = ({ nodes, edges, onLoadFlow, currentFlowInfo, validation, showVa
         onLoadFlow(flowData);
       } catch (error) {
         alert('Error loading flow file: ' + error.message);
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset file input
+    event.target.value = '';
+  };
+
+  const importWorkflows = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const jsonData = JSON.parse(e.target.result);
+        onImportWorkflows(jsonData);
+      } catch (error) {
+        alert('Error importing workflows: ' + error.message);
       }
     };
     reader.readAsText(file);
@@ -192,6 +212,36 @@ const Toolbar = ({ nodes, edges, onLoadFlow, currentFlowInfo, validation, showVa
           📂 Load Flow
         </button>
 
+        {/* Import Workflow Button */}
+        <button
+          onClick={() => importFileInputRef.current?.click()}
+          style={{
+            background: 'rgba(255,255,255,0.2)',
+            border: '1px solid rgba(255,255,255,0.3)',
+            color: 'white',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = 'rgba(255,255,255,0.3)';
+            e.target.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = 'rgba(255,255,255,0.2)';
+            e.target.style.transform = 'translateY(0)';
+          }}
+          title="Import workflows from JSON"
+        >
+          📥 Import Workflows
+        </button>
+
         {/* AI Settings Button */}
         <button
           onClick={onShowAISettings}
@@ -305,6 +355,14 @@ const Toolbar = ({ nodes, edges, onLoadFlow, currentFlowInfo, validation, showVa
           type="file"
           accept=".json"
           onChange={loadFlow}
+          style={{ display: 'none' }}
+        />
+        
+        <input
+          ref={importFileInputRef}
+          type="file"
+          accept=".json"
+          onChange={importWorkflows}
           style={{ display: 'none' }}
         />
       </div>
