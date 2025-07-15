@@ -33,6 +33,18 @@ A visual workflow creation tool built with React and ReactFlow. Create, test, an
    npm install
    ```
 
+   **For Corporate Environments** (if you encounter blocked packages):
+   ```bash
+   # Option 1: Use the corporate install script
+   node install-corporate.js
+   
+   # Option 2: Install with corporate-friendly flags
+   npm install --legacy-peer-deps --no-optional
+   
+   # Option 3: Use Yarn if available
+   yarn install
+   ```
+
 3. **Start the development server**
    ```bash
    npm start
