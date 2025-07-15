@@ -101,18 +101,29 @@ function App() {
     }, [workflows, setNodes, setEdges]);
 
     // Add new workflow tab
-    const addWorkflow = useCallback((name, nodes = initialNodes, edges = initialEdges) => {
+    const addWorkflow = useCallback((name = 'New Tab') => {
         const newId = `workflow_${Date.now()}`;
         const newWorkflow = {
             id: newId,
             name: name,
-            nodes: nodes,
-            edges: edges,
+            nodes: [...initialNodes], // Fresh copy
+            edges: [...initialEdges], // Fresh copy
             isActive: false
         };
         
-        setWorkflows(prev => [...prev, newWorkflow]);
-        switchWorkflow(newId);
+        console.log(`Creating new tab: "${name}" with ID: ${newId}`);
+        
+        setWorkflows(prev => {
+            const updated = [...prev, newWorkflow];
+            console.log('Updated workflows:', updated.map(w => ({ name: w.name, id: w.id })));
+            return updated;
+        });
+        
+        // Switch to the new tab
+        setTimeout(() => {
+            switchWorkflow(newId);
+        }, 50);
+        
         return newId;
     }, [switchWorkflow]);
 
@@ -136,7 +147,8 @@ function App() {
         });
     }, [workflows, activeWorkflowId, setNodes, setEdges]);
 
-    // Import workflows from JSON - single canvas approach (this works!)
+    // Import workflows from JSON - SIMPLE approach
+    // eslint-disable-next-line no-use-before-define
     const importWorkflows = useCallback((jsonData) => {
         try {
             let workflowsData = [];
@@ -151,116 +163,80 @@ function App() {
                 throw new Error('Invalid workflow format');
             }
 
-            console.log(`Importing ${workflowsData.length} workflows on single canvas`);
+            console.log(`Importing ${workflowsData.length} workflows as separate tabs`);
             
-            // Create all workflows on one canvas with clear separation
-            const allNodes = [];
-            const allEdges = [];
-            const workflowSpacing = 700; // Space between workflows
-            let currentX = 100;
+            // Create all new workflows at once
+            const newWorkflows = [];
             
             workflowsData.forEach((workflowData, index) => {
-                console.log(`Processing workflow ${index + 1}: "${workflowData.id}"`);
+                console.log(`\n=== Processing Workflow ${index + 1} ===`);
+                
+                // Handle different ID field names (id vs Id)
+                const workflowId = workflowData.id || workflowData.Id || `unknown_${index}`;
+                const workflowType = workflowData.type || (workflowData.Evaluations ? 'evaluation' : 'unknown');
+                
+                console.log(`Workflow ID: "${workflowId}"`);
+                console.log(`Workflow Type: "${workflowType}"`);
                 
                 // Generate nodes and edges for this workflow
                 const { nodes: workflowNodes, edges: workflowEdges } = convertWorkflowToReactFlow(workflowData);
                 
-                // Add a title node for each workflow
-                const titleNode = {
-                    id: `title_${index + 1}`,
-                    type: 'input',
-                    position: { x: currentX, y: 10 },
-                    data: { 
-                        label: `Rule ${index + 1}`,
-                        variable: `rule${index + 1}_title`,
-                        value: `Original ID: ${workflowData.id}`
-                    }
+                console.log(`Generated nodes:`, workflowNodes);
+                const startNode = workflowNodes.find(n => n.type === 'start');
+                console.log(`Start node ID label: "${startNode?.data?.idLabel}"`);
+                
+                // Create workflow object directly
+                const newWorkflow = {
+                    id: `imported_${index}_${Date.now()}`,
+                    name: `Rule${index + 1}`,
+                    nodes: workflowNodes,
+                    edges: workflowEdges,
+                    isActive: false,
+                    imported: true,
+                    originalData: workflowData
                 };
                 
-                // Offset workflow nodes
-                const offsetNodes = workflowNodes.map(node => ({
-                    ...node,
-                    id: `rule${index + 1}_${node.id}`,
-                    position: {
-                        x: node.position.x + currentX,
-                        y: node.position.y + 80 // Leave space for title
-                    }
-                }));
+                console.log(`Created workflow: "${newWorkflow.name}" with start node ID: "${startNode?.data?.idLabel}"`);
+                newWorkflows.push(newWorkflow);
+            });
+            
+            // Add all new workflows to state at once and store the first workflow ID for switching
+            const firstWorkflowId = newWorkflows.length > 0 ? newWorkflows[0].id : null;
+            
+            setWorkflows(prev => {
+                const updatedWorkflows = [...prev, ...newWorkflows];
+                console.log('Updated workflows state:', updatedWorkflows.map(w => ({ name: w.name, id: w.id })));
                 
-                // Update edge IDs
-                const offsetEdges = workflowEdges.map(edge => ({
-                    ...edge,
-                    id: `rule${index + 1}_${edge.id}`,
-                    source: `rule${index + 1}_${edge.source}`,
-                    target: `rule${index + 1}_${edge.target}`
-                }));
-                
-                // Add separator line (visual divider)
-                if (index > 0) {
-                    const separatorNode = {
-                        id: `separator_${index}`,
-                        type: 'input',
-                        position: { x: currentX - 50, y: 200 },
-                        data: { 
-                            label: '│',
-                            variable: 'separator',
-                            value: '│'
+                // Switch to first imported workflow immediately after state update
+                if (firstWorkflowId) {
+                    setTimeout(() => {
+                        console.log('Attempting to switch to:', firstWorkflowId);
+                        const targetWorkflow = updatedWorkflows.find(w => w.id === firstWorkflowId);
+                        if (targetWorkflow) {
+                            console.log('Found target workflow:', targetWorkflow.name);
+                            setActiveWorkflowId(firstWorkflowId);
+                            setNodes(targetWorkflow.nodes);
+                            setEdges(targetWorkflow.edges);
                         }
-                    };
-                    allNodes.push(separatorNode);
+                    }, 100);
                 }
                 
-                allNodes.push(titleNode, ...offsetNodes);
-                allEdges.push(...offsetEdges);
-                
-                console.log(`Added Rule ${index + 1} at x=${currentX} with start node: "${offsetNodes.find(n => n.type === 'start')?.data?.label}"`);
-                
-                currentX += workflowSpacing;
+                return updatedWorkflows;
             });
             
-            // Replace current canvas
-            setNodes(allNodes);
-            setEdges(allEdges);
-            setCurrentFlowInfo({
-                name: `${workflowsData.length} Imported Rules`,
-                createdAt: new Date().toISOString()
-            });
+            console.log(`\n=== IMPORT COMPLETE ===`);
+            console.log(`Created ${newWorkflows.length} tabs:`, newWorkflows.map(w => w.name));
             
-            console.log(`Successfully imported ${workflowsData.length} workflows on single canvas`);
-            alert(`Successfully imported ${workflowsData.length} workflow(s)!\n\nEach workflow is labeled as "Rule 1", "Rule 2", etc.\nScroll horizontally to see all workflows.`);
+            alert(`Successfully imported ${workflowsData.length} workflow(s) as separate tabs!\n\nTabs created: ${newWorkflows.map(w => w.name).join(', ')}`);
             
         } catch (error) {
             console.error('Import error:', error);
             alert(`Failed to import workflows: ${error.message}`);
         }
-    }, [setNodes, setEdges]);
+        // eslint-disable-next-line no-use-before-define
+    }, [convertWorkflowToReactFlow, setNodes, setEdges]);
 
-    // Create a completely independent workflow from JSON data
-    const createIndependentWorkflow = useCallback((workflowData, index) => {
-        console.log(`Creating independent workflow ${index + 1} from:`, workflowData);
-        
-        // Generate unique tab name
-        const tabName = `Rule${index + 1}`;
-        
-        // Generate unique workflow ID
-        const uniqueId = `workflow_${index}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        // Convert this specific workflow data to ReactFlow format
-        const { nodes, edges } = convertWorkflowToReactFlow(workflowData);
-        
-        console.log(`Generated ${nodes.length} nodes and ${edges.length} edges for ${tabName}`);
-        
-        return {
-            id: uniqueId,
-            name: tabName,
-            nodes: nodes,
-            edges: edges,
-            isActive: false,
-            imported: true,
-            originalData: workflowData,
-            createdAt: new Date().toISOString()
-        };
-    }, []);
+
 
     // Convert your workflow format to ReactFlow format
     const convertWorkflowToReactFlow = useCallback((workflowData) => {
@@ -270,13 +246,16 @@ function App() {
         
         // Handle endpoint type objects
         if (workflowData.type === 'endpoint') {
-            // Create start node named after the id
+            // Create start node with standard "Start" label
             const startNodeId = `start_${nodeIdCounter++}`;
             nodes.push({
                 id: startNodeId,
                 type: 'start',
                 position: { x: 200, y: 50 },
-                data: { label: workflowData.id }
+                data: { 
+                    label: 'Start',
+                    idLabel: workflowData.id // Add ID label for identification
+                }
             });
             
             // Create function node named after the label with details
@@ -320,13 +299,16 @@ function App() {
 
         // Handle decision type objects
         if (workflowData.type === 'decision') {
-            // Create start node named after the id
+            // Create start node with standard "Start" label
             const startNodeId = `start_${nodeIdCounter++}`;
             nodes.push({
                 id: startNodeId,
                 type: 'start',
                 position: { x: 200, y: 50 },
-                data: { label: workflowData.id }
+                data: { 
+                    label: 'Start',
+                    idLabel: workflowData.id // Add ID label for identification
+                }
             });
             
             let previousNodeId = startNodeId;
@@ -407,26 +389,37 @@ function App() {
             return { nodes, edges };
         }
         
-        // Handle complex workflow objects (existing logic for later)
+        // Handle evaluation-based workflow objects (complex routing workflows)
         if (workflowData.Id && workflowData.Evaluations) {
-            // Create start node
+            console.log('Processing evaluation-based workflow:', workflowData.Id);
+            
+            // Create start node with standard "Start" label and ID
             const startNodeId = `start_${nodeIdCounter++}`;
             nodes.push({
                 id: startNodeId,
                 type: 'start',
                 position: { x: 200, y: 50 },
-                data: { label: `Start: ${workflowData.Name}` }
+                data: { 
+                    label: 'Start',
+                    idLabel: workflowData.Id // Use Id field for identification
+                }
             });
             
             let previousNodeId = startNodeId;
-            let yPosition = 150;
+            let yPosition = 200;
+            let lastConditionNodeId = null;
             
             // Process evaluations in order
             const evaluations = workflowData.Evaluations || [];
             evaluations.sort((a, b) => (a.Order || 0) - (b.Order || 0));
             
+            console.log(`Processing ${evaluations.length} evaluations`);
+            
             evaluations.forEach((evaluation, index) => {
                 const conditionNodeId = `condition_${nodeIdCounter++}`;
+                lastConditionNodeId = conditionNodeId;
+                
+                console.log(`Creating condition ${index + 1}: "${evaluation.Expression}"`);
                 
                 // Create condition node
                 nodes.push({
@@ -434,7 +427,7 @@ function App() {
                     type: 'condition',
                     position: { x: 200, y: yPosition },
                     data: {
-                        label: `Condition ${evaluation.Order || index}`,
+                        label: `${workflowData.Name} (${evaluation.Order})`,
                         condition: evaluation.Expression || 'true'
                     }
                 });
@@ -449,12 +442,14 @@ function App() {
                 // Create TRUE path endpoint
                 if (evaluation.Result && evaluation.Result.ResultValue && evaluation.Result.ResultValue.EndPoint) {
                     const trueEndNodeId = `end_true_${nodeIdCounter++}`;
+                    const queueName = evaluation.Result.ResultValue.EndPoint.Qname || 'Endpoint';
+                    
                     nodes.push({
                         id: trueEndNodeId,
                         type: 'end',
-                        position: { x: 400, y: yPosition },
+                        position: { x: 450, y: yPosition },
                         data: { 
-                            label: `TRUE: ${evaluation.Result.ResultValue.EndPoint.Qname || 'Endpoint'}` 
+                            label: `TRUE: ${queueName}` 
                         }
                     });
                     
@@ -467,27 +462,28 @@ function App() {
                 }
                 
                 previousNodeId = conditionNodeId;
-                yPosition += 150;
+                yPosition += 180;
             });
             
             // Create default result endpoint (FALSE path from last condition)
             if (workflowData.DefaultResult && workflowData.DefaultResult.ResultValue && workflowData.DefaultResult.ResultValue.EndPoint) {
                 const defaultEndNodeId = `end_default_${nodeIdCounter++}`;
+                const defaultQueueName = workflowData.DefaultResult.ResultValue.EndPoint.Qname || 'Default Endpoint';
+                
                 nodes.push({
                     id: defaultEndNodeId,
                     type: 'end',
                     position: { x: 200, y: yPosition },
                     data: { 
-                        label: `DEFAULT: ${workflowData.DefaultResult.ResultValue.EndPoint.Qname || 'Default Endpoint'}` 
+                        label: `DEFAULT: ${defaultQueueName}` 
                     }
                 });
                 
                 // Connect from last condition's FALSE path
-                if (evaluations.length > 0) {
-                    const lastConditionId = `condition_${evaluations.length}`;
+                if (lastConditionNodeId) {
                     edges.push({
-                        id: `edge_${lastConditionId}_${defaultEndNodeId}`,
-                        source: lastConditionId,
+                        id: `edge_${lastConditionNodeId}_${defaultEndNodeId}`,
+                        source: lastConditionNodeId,
                         target: defaultEndNodeId,
                         sourceHandle: 'false'
                     });
@@ -501,6 +497,7 @@ function App() {
                 }
             }
             
+            console.log(`Created evaluation workflow with ${nodes.length} nodes and ${edges.length} edges`);
             return { nodes, edges };
         }
         
@@ -958,8 +955,8 @@ function App() {
                 onShowAISettings={() => setShowAISettings(true)}
             />
 
-            {/* Workflow Tabs */}
-            {workflows.length > 1 && (
+            {/* Workflow Tabs - Always show */}
+            {true && (
                 <div style={{
                     display: 'flex',
                     background: '#f8f9fa',
@@ -1041,7 +1038,12 @@ function App() {
                     
                     {/* Add New Tab Button */}
                     <button
-                        onClick={() => addWorkflow('New Flow')}
+                        onClick={() => {
+                            const tabName = prompt('Enter tab name:', 'New Tab');
+                            if (tabName && tabName.trim()) {
+                                addWorkflow(tabName.trim());
+                            }
+                        }}
                         style={{
                             background: 'none',
                             border: '1px solid #e1e5e9',

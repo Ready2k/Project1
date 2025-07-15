@@ -72,7 +72,21 @@ const StartNode = ({ data, id }) => {
           onClick={() => setIsEditingLabel(true)}
           style={{ cursor: 'pointer' }}
         >
-          {label}
+          <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
+            {label}
+          </div>
+          {data.idLabel && (
+            <div style={{ 
+              fontSize: '10px', 
+              marginTop: '4px', 
+              opacity: 0.9,
+              fontWeight: 'normal',
+              wordBreak: 'break-all',
+              lineHeight: '1.2'
+            }}>
+              ID: {data.idLabel}
+            </div>
+          )}
         </div>
       )}
       <Handle

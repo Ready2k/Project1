@@ -131,7 +131,7 @@ class AIFlowAgent {
         throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json();
+      await response.json(); // Parse response but don't need the data
       console.log('🤖 Chat completion test successful');
       
       return { 
