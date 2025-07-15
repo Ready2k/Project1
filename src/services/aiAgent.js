@@ -69,23 +69,79 @@ class AIFlowAgent {
   }
 
   async testOpenAI() {
-    const response = await fetch('https://api.openai.com/v1/models', {
-      headers: {
-        'Authorization': `Bearer ${this.config.apiKey}`,
-        'Content-Type': 'application/json'
+    console.log('🤖 Testing OpenAI connection...');
+    console.log('🤖 API Key format:', this.config.apiKey ? `${this.config.apiKey.substring(0, 7)}...` : 'MISSING');
+    
+    try {
+      // First try the models endpoint
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('🤖 Models endpoint response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('🤖 Models endpoint error:', errorText);
+        
+        // If models endpoint fails, try a simple chat completion as fallback
+        return await this.testOpenAIWithChat();
       }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      
+      const data = await response.json();
+      console.log('🤖 Available models:', data.data?.length || 0);
+      
+      return { 
+        success: true, 
+        model: this.config.model,
+        availableModels: data.data?.length || 0
+      };
+    } catch (error) {
+      console.error('🤖 OpenAI test error:', error);
+      // Fallback to chat completion test
+      return await this.testOpenAIWithChat();
     }
+  }
+
+  async testOpenAIWithChat() {
+    console.log('🤖 Fallback: Testing with chat completion...');
     
-    const data = await response.json();
-    return { 
-      success: true, 
-      model: this.config.model,
-      availableModels: data.data?.length || 0
-    };
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: this.config.model || 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: 'Hello' }],
+          max_tokens: 5
+        })
+      });
+
+      console.log('🤖 Chat completion test status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('🤖 Chat completion error:', errorText);
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('🤖 Chat completion test successful');
+      
+      return { 
+        success: true, 
+        model: this.config.model || 'gpt-3.5-turbo'
+      };
+    } catch (error) {
+      console.error('🤖 Chat completion test failed:', error);
+      throw error;
+    }
   }
 
   async testClaude() {
@@ -337,13 +393,6 @@ Be specific and practical in your analysis.`;
 
   // OpenAI API call
   async callOpenAI(prompt) {
-    console.log('🤖 Calling OpenAI API with config:', {
-      model: this.config.model,
-      hasApiKey: !!this.config.apiKey,
-      temperature: this.config.temperature,
-      maxTokens: this.config.maxTokens
-    });
-
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -358,16 +407,11 @@ Be specific and practical in your analysis.`;
       })
     });
 
-    console.log('🤖 OpenAI API response status:', response.status);
-
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('🤖 OpenAI API error details:', errorText);
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log('🤖 OpenAI API response:', data);
     return data.choices[0].message.content;
   }
 

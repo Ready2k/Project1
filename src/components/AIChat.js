@@ -15,14 +15,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
   // eslint-disable-next-line no-unused-vars
   const [currentQuestions, setCurrentQuestions] = useState([]);
 
-  const [aiAgent, setAiAgent] = useState(() => new AIFlowAgent(aiConfig));
-
-  // Update AI agent when config changes
-  useEffect(() => {
-    if (aiConfig) {
-      setAiAgent(new AIFlowAgent(aiConfig));
-    }
-  }, [aiConfig]);
+  const [aiAgent] = useState(() => new AIFlowAgent(aiConfig));
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -54,10 +47,6 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
     setIsLoading(true);
 
     try {
-      console.log('🤖 Processing user input:', userMessage);
-      console.log('🤖 Current AI config:', aiConfig);
-      console.log('🤖 AI Agent provider:', aiAgent.config?.provider);
-      
       const response = await aiAgent.processNaturalLanguage(userMessage);
 
       if (response.type === 'questions') {
@@ -69,31 +58,10 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
         onFlowGenerated(response.flowData);
       }
     } catch (error) {
-      console.error('🤖 AI Agent Error:', error);
-      addMessage('ai', `❌ I encountered an error: ${error.message}. Please check your AI configuration and try again.`);
+      addMessage('ai', "I'm sorry, I encountered an error processing your request. Could you try rephrasing it?");
+      console.error('AI Agent Error:', error);
     }
 
-    setIsLoading(false);
-  };
-
-  const testAIConnection = async () => {
-    setIsLoading(true);
-    addMessage('system', '🧪 Testing AI connection...');
-    
-    try {
-      const testResult = await aiAgent.testConnection();
-      
-      if (testResult.success) {
-        addMessage('system', `✅ AI connection successful! Using model: ${testResult.model}`);
-        addMessage('ai', "Hi! I'm ready to help you create flows. Try asking me something like 'Create a flow to validate email addresses' or 'Make a calculator flow'.");
-      } else {
-        addMessage('system', `❌ AI connection failed: ${testResult.error}`);
-      }
-    } catch (error) {
-      console.error('🤖 Connection test error:', error);
-      addMessage('system', `❌ Connection test failed: ${error.message}`);
-    }
-    
     setIsLoading(false);
   };
 
@@ -157,48 +125,31 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
         padding: '16px',
         borderBottom: '1px solid #e1e5e9',
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white'
+        color: 'white',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '16px' }}>🤖 AI Flow Builder</h3>
-            <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.9 }}>
-              Describe your workflow in natural language
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'rgba(255,255,255,0.2)',
-              border: 'none',
-              color: 'white',
-              width: '24px',
-              height: '24px',
-              borderRadius: '50%',
-              cursor: 'pointer',
-              fontSize: '16px'
-            }}
-          >
-            ×
-          </button>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '16px' }}>🤖 AI Flow Builder</h3>
+          <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.9 }}>
+            Describe your workflow in natural language
+          </p>
         </div>
-        
-        {/* Test Connection Button */}
         <button
-          onClick={testAIConnection}
-          disabled={isLoading}
+          onClick={onClose}
           style={{
             background: 'rgba(255,255,255,0.2)',
-            border: '1px solid rgba(255,255,255,0.3)',
+            border: 'none',
             color: 'white',
-            padding: '4px 8px',
-            borderRadius: '12px',
-            cursor: isLoading ? 'not-allowed' : 'pointer',
-            fontSize: '11px',
-            opacity: isLoading ? 0.6 : 1
+            width: '24px',
+            height: '24px',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            fontSize: '16px'
           }}
         >
-          {isLoading ? '🔄 Testing...' : '🧪 Test AI Connection'}
+          ×
         </button>
       </div>
 
