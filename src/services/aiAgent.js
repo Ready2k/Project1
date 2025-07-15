@@ -6,6 +6,13 @@ class AIFlowAgent {
     this.conversationHistory = [];
     this.currentFlowContext = null;
     this.config = config || this.loadConfig();
+    
+    console.log('🤖 AIFlowAgent initialized with config:', {
+      provider: this.config.provider,
+      hasApiKey: !!this.config.apiKey,
+      model: this.config.model,
+      configSource: config ? 'provided' : 'localStorage'
+    });
   }
 
   loadConfig() {
@@ -330,6 +337,13 @@ Be specific and practical in your analysis.`;
 
   // OpenAI API call
   async callOpenAI(prompt) {
+    console.log('🤖 Calling OpenAI API with config:', {
+      model: this.config.model,
+      hasApiKey: !!this.config.apiKey,
+      temperature: this.config.temperature,
+      maxTokens: this.config.maxTokens
+    });
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -344,11 +358,16 @@ Be specific and practical in your analysis.`;
       })
     });
 
+    console.log('🤖 OpenAI API response status:', response.status);
+
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('🤖 OpenAI API error details:', errorText);
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('🤖 OpenAI API response:', data);
     return data.choices[0].message.content;
   }
 
