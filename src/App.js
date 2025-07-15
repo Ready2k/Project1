@@ -171,8 +171,8 @@ function App() {
             workflowsData.forEach((workflowData, index) => {
                 console.log(`\n=== Processing Workflow ${index + 1} ===`);
                 
-                // Handle different ID field names (id vs Id)
-                const workflowId = workflowData.id || workflowData.Id || `unknown_${index}`;
+                // Handle different ID field names - Name is the primary unique identifier
+                const workflowId = workflowData.Name || workflowData.id || workflowData.Id || `unknown_${index}`;
                 const workflowType = workflowData.type || (workflowData.Evaluations ? 'evaluation' : 'unknown');
                 
                 console.log(`Workflow ID: "${workflowId}"`);
@@ -400,7 +400,7 @@ function App() {
                 position: { x: 200, y: 50 },
                 data: { 
                     label: 'Start',
-                    idLabel: workflowData.Id // Use Id field for identification
+                    idLabel: workflowData.Name || workflowData.Id // Use Name as primary identifier
                 }
             });
             
@@ -420,35 +420,64 @@ function App() {
                 
                 console.log(`Creating condition ${index + 1}: "${evaluation.Expression}"`);
                 
-                // Create condition node
+                // Create condition node with enhanced expression display
+                let displayExpression = evaluation.Expression || 'true';
+                
+                // For Decision results, append ">0" to show complete evaluation
+                if (evaluation.Result && evaluation.Result.ResultType === 'Decision') {
+                    displayExpression = `${evaluation.Expression}>0`;
+                }
+                
                 nodes.push({
                     id: conditionNodeId,
                     type: 'condition',
                     position: { x: 200, y: yPosition },
                     data: {
                         label: `${workflowData.Name} (${evaluation.Order})`,
-                        condition: evaluation.Expression || 'true'
+                        condition: displayExpression
                     }
                 });
                 
-                // Connect from previous node
-                edges.push({
-                    id: `edge_${previousNodeId}_${conditionNodeId}`,
-                    source: previousNodeId,
-                    target: conditionNodeId
-                });
+                // Connect from previous node (only if not first condition)
+                if (index === 0) {
+                    // First condition connects from start
+                    edges.push({
+                        id: `edge_${startNodeId}_${conditionNodeId}`,
+                        source: startNodeId,
+                        target: conditionNodeId
+                    });
+                } else {
+                    // Subsequent conditions connect from previous condition's FALSE path
+                    edges.push({
+                        id: `edge_${previousNodeId}_${conditionNodeId}`,
+                        source: previousNodeId,
+                        target: conditionNodeId,
+                        sourceHandle: 'false'
+                    });
+                }
                 
-                // Create TRUE path endpoint
-                if (evaluation.Result && evaluation.Result.ResultValue && evaluation.Result.ResultValue.EndPoint) {
+                // Update previousNodeId for next iteration
+                previousNodeId = conditionNodeId;
+                
+                // Create TRUE path result (endpoint or decision)
+                if (evaluation.Result && evaluation.Result.ResultValue) {
                     const trueEndNodeId = `end_true_${nodeIdCounter++}`;
-                    const queueName = evaluation.Result.ResultValue.EndPoint.Qname || 'Endpoint';
+                    let resultLabel = 'TRUE: Result';
+                    
+                    if (evaluation.Result.ResultType === 'endpoint' && evaluation.Result.ResultValue.EndPoint) {
+                        const queueName = evaluation.Result.ResultValue.EndPoint.Qname || 'Endpoint';
+                        resultLabel = `TRUE: ${queueName}`;
+                    } else if (evaluation.Result.ResultType === 'Decision' && evaluation.Result.ResultValue.Decision) {
+                        const decisionName = evaluation.Result.ResultValue.Decision;
+                        resultLabel = `TRUE: → ${decisionName}`;
+                    }
                     
                     nodes.push({
                         id: trueEndNodeId,
                         type: 'end',
                         position: { x: 450, y: yPosition },
                         data: { 
-                            label: `TRUE: ${queueName}` 
+                            label: resultLabel
                         }
                     });
                     
@@ -460,40 +489,46 @@ function App() {
                     });
                 }
                 
-                previousNodeId = conditionNodeId;
                 yPosition += 180;
             });
             
-            // Create default result endpoint (FALSE path from last condition)
-            if (workflowData.DefaultResult && workflowData.DefaultResult.ResultValue && workflowData.DefaultResult.ResultValue.EndPoint) {
-                const defaultEndNodeId = `end_default_${nodeIdCounter++}`;
+            // Create final FALSE path endpoint
+            const finalEndNodeId = `end_final_${nodeIdCounter++}`;
+            let finalLabel = 'No Match';
+            
+            // For Rule1 (DETestStart), show "No Match"
+            // For other rules, show the default endpoint
+            if (workflowData.Name === 'DETestStart') {
+                finalLabel = 'No Match';
+            } else if (workflowData.DefaultResult && workflowData.DefaultResult.ResultValue && workflowData.DefaultResult.ResultValue.EndPoint) {
                 const defaultQueueName = workflowData.DefaultResult.ResultValue.EndPoint.Qname || 'Default Endpoint';
-                
-                nodes.push({
-                    id: defaultEndNodeId,
-                    type: 'end',
-                    position: { x: 200, y: yPosition },
-                    data: { 
-                        label: `DEFAULT: ${defaultQueueName}` 
-                    }
-                });
-                
-                // Connect from last condition's FALSE path
-                if (lastConditionNodeId) {
-                    edges.push({
-                        id: `edge_${lastConditionNodeId}_${defaultEndNodeId}`,
-                        source: lastConditionNodeId,
-                        target: defaultEndNodeId,
-                        sourceHandle: 'false'
-                    });
-                } else {
-                    // If no evaluations, connect directly from start
-                    edges.push({
-                        id: `edge_${startNodeId}_${defaultEndNodeId}`,
-                        source: startNodeId,
-                        target: defaultEndNodeId
-                    });
+                finalLabel = `DEFAULT: ${defaultQueueName}`;
+            }
+            
+            nodes.push({
+                id: finalEndNodeId,
+                type: 'end',
+                position: { x: 200, y: yPosition },
+                data: { 
+                    label: finalLabel
                 }
+            });
+            
+            // Connect from last condition's FALSE path
+            if (lastConditionNodeId) {
+                edges.push({
+                    id: `edge_${lastConditionNodeId}_${finalEndNodeId}`,
+                    source: lastConditionNodeId,
+                    target: finalEndNodeId,
+                    sourceHandle: 'false'
+                });
+            } else {
+                // If no evaluations, connect directly from start
+                edges.push({
+                    id: `edge_${startNodeId}_${finalEndNodeId}`,
+                    source: startNodeId,
+                    target: finalEndNodeId
+                });
             }
             
             console.log(`Created evaluation workflow with ${nodes.length} nodes and ${edges.length} edges`);
