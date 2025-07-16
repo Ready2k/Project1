@@ -227,9 +227,9 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
         // Handle test configuration requests
         addMessage('ai', response.content);
         setPendingTestConfig(response.testVariables);
-        addMessage('ai', '', { 
+        addMessage('ai', '', {
           testConfig: response.testVariables,
-          onConfigured: response.onConfigured 
+          onConfigured: response.onConfigured
         });
       } else if (response.type === 'flow') {
         // Check if we're using fallback mode and show user-friendly message
@@ -248,6 +248,14 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
           // Final success message after all audit steps
           setTimeout(() => {
             addMessage('ai', "Perfect! I've created your flow. You can see it on the canvas and test it right away. Feel free to ask me to modify anything or create another flow!");
+            
+            // Show export JSON if available
+            if (response.flowData.importJson) {
+              addMessage('ai', "📤 **Export JSON (Import Format):**\n\nHere's your flow in the import JSON format:", {
+                exportJson: response.flowData.importJson
+              });
+            }
+            
             onFlowGenerated(response.flowData);
           }, response.auditTrail.length * 800 + 500);
         } else {
@@ -355,7 +363,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
         <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#333' }}>
           🧪 Test Configuration
         </h4>
-        
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
           {testVariables.map(variable => (
             <div key={variable.name} style={{
@@ -375,21 +383,21 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
                 </span>
                 <span style={{
                   fontSize: '10px',
-                  background: variable.type === 'system' ? '#e8f5e8' : 
-                            variable.type === 'session' ? '#fff3e0' : '#f3e5f5',
-                  color: variable.type === 'system' ? '#2e7d32' : 
-                         variable.type === 'session' ? '#f57c00' : '#7b1fa2',
+                  background: variable.type === 'system' ? '#e8f5e8' :
+                    variable.type === 'session' ? '#fff3e0' : '#f3e5f5',
+                  color: variable.type === 'system' ? '#2e7d32' :
+                    variable.type === 'session' ? '#f57c00' : '#7b1fa2',
                   padding: '2px 4px',
                   borderRadius: '8px'
                 }}>
                   {variable.type}
                 </span>
               </div>
-              
+
               <p style={{ margin: '0 0 6px 0', fontSize: '10px', color: '#666' }}>
                 {variable.description}
               </p>
-              
+
               <input
                 type="text"
                 value={configValues[variable.name] || ''}
@@ -646,12 +654,12 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
             {/* Mock Fallback Toggle */}
             {config.provider !== 'mock' && (
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
                   gap: '8px',
-                  fontSize: '12px', 
-                  fontWeight: 'bold', 
+                  fontSize: '12px',
+                  fontWeight: 'bold',
                   color: '#333',
                   cursor: 'pointer'
                 }}>
@@ -664,7 +672,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
                   Enable Mock Fallback
                 </label>
                 <p style={{ margin: '4px 0 0 20px', fontSize: '10px', color: '#666' }}>
-                  {config.enableMockFallback 
+                  {config.enableMockFallback
                     ? '✅ Will use mock AI if real API fails (transparent fallback)'
                     : '❌ Will show error if real API fails (no fallback)'
                   }
@@ -678,7 +686,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
                   fontSize: '10px',
                   color: config.enableMockFallback ? '#155724' : '#856404'
                 }}>
-                  {config.enableMockFallback 
+                  {config.enableMockFallback
                     ? '🤖 Mock responses will be clearly labeled when used'
                     : '⚠️ You\'ll see clear error messages if API fails'
                   }
@@ -774,6 +782,79 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
               </div>
             </div>
 
+            {/* Render export JSON if present */}
+            {message.exportJson && (
+              <div style={{
+                marginTop: '8px',
+                background: '#f8f9fa',
+                border: '1px solid #e1e5e9',
+                borderRadius: '8px',
+                padding: '12px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '8px'
+                }}>
+                  <h4 style={{ margin: 0, fontSize: '13px', color: '#333' }}>
+                    📤 Import JSON Format
+                  </h4>
+                  <button
+                    onClick={(event) => {
+                      navigator.clipboard.writeText(JSON.stringify(message.exportJson, null, 2));
+                      // Show temporary feedback
+                      const btn = event.target;
+                      const originalText = btn.textContent;
+                      btn.textContent = '✅ Copied!';
+                      btn.style.background = '#28a745';
+                      setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = '#007bff';
+                      }, 2000);
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      background: '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    📋 Copy JSON
+                  </button>
+                </div>
+                
+                <pre style={{
+                  background: '#ffffff',
+                  border: '1px solid #e1e5e9',
+                  borderRadius: '4px',
+                  padding: '8px',
+                  fontSize: '11px',
+                  fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                  overflow: 'auto',
+                  maxHeight: '200px',
+                  margin: 0,
+                  color: '#333',
+                  lineHeight: '1.4'
+                }}>
+                  {JSON.stringify(message.exportJson, null, 2)}
+                </pre>
+                
+                <p style={{
+                  margin: '8px 0 0 0',
+                  fontSize: '10px',
+                  color: '#666',
+                  fontStyle: 'italic'
+                }}>
+                  💡 This JSON can be imported back into the Flow Builder using the "Import Workflow" button.
+                </p>
+              </div>
+            )}
+
             {/* Render questions if present */}
             {message.questions && (
               <div style={{ marginTop: '8px' }}>
@@ -836,7 +917,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
 
             {/* Render test configuration if present */}
             {message.testConfig && (
-              <TestConfigurationPanel 
+              <TestConfigurationPanel
                 testVariables={message.testConfig}
                 onConfigured={message.onConfigured}
                 onRunTest={handleRunTestWithConfig}

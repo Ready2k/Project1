@@ -1235,6 +1235,8 @@ function App() {
                 showValidation={showValidation}
                 setShowValidation={setShowValidation}
                 onShowAIChat={() => setShowAIChat(true)}
+                workflows={workflows}
+                activeWorkflowId={activeWorkflowId}
             />
 
             {/* Workflow Tabs - Always show */}

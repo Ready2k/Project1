@@ -1,10 +1,26 @@
 # Flow Builder 🔄
 
-A powerful visual workflow creation tool built with React and ReactFlow. Create, test, and validate complex logical flows using an intuitive drag-and-drop interface with advanced features for enterprise workflow management.
+A powerful visual workflow creation tool built with React and ReactFlow. Create, test, and validate complex logical flows using an intuitive drag-and-drop interface with advanced AI-powered features and enterprise workflow management capabilities.
 
 ![Flow Builder Screenshot](https://via.placeholder.com/800x400/667eea/ffffff?text=Flow+Builder+Interface)
 
 ## ✨ Features
+
+### 🤖 AI-Powered Workflow Creation
+- **🧠 Enhanced AI Assistant**: Natural language workflow generation with intelligent pattern recognition
+- **🔗 Perfect Node Connections**: AI automatically creates properly connected sequential condition flows
+- **📤 Smart Export Integration**: AI-generated flows include export-ready JSON format with copy functionality
+- **🎯 Time-Based Flow Recognition**: Specialized handling for date/time conditions like "Tuesday before 9am"
+- **⚙️ Multiple AI Providers**: Support for OpenAI, Claude, Ollama, Azure OpenAI, AWS Bedrock, and custom APIs
+- **🔄 Mock Fallback System**: Enhanced mock AI when external providers are unavailable
+
+### 📤 Advanced Export/Import System
+- **📋 Export Workflow Dialog**: Professional export interface with filename customization
+- **🎯 Flexible Export Scope**: Choose between current tab or all tabs export
+- **🔄 Perfect Round-Trip**: Preserves original import data for lossless export/import cycles
+- **📊 Export Summary**: Real-time preview of what will be exported
+- **📁 Smart File Naming**: Automatic filename generation with timestamps
+- **💾 One-Click Copy**: Copy export JSON directly to clipboard
 
 ### Core Workflow Features
 - **🎨 Visual Flow Design**: Drag-and-drop interface for creating workflows
@@ -18,14 +34,14 @@ A powerful visual workflow creation tool built with React and ReactFlow. Create,
 - **📥 JSON Workflow Import**: Import complex routing workflows from JSON with automatic conversion
 - **🔗 Rule Linking & Navigation**: Click-to-jump between related workflows with visual link indicators
 - **🧪 Dynamic Test Configurator**: Context-aware test configuration for complex expressions
-- **🤖 AI-Powered Flow Generation**: Natural language workflow creation with multiple AI providers
-- **⚙️ Integrated AI Settings**: Configure AI providers directly within the chat interface
+- **🎯 Context Analysis**: AI can analyze and describe your current workspace and workflows
 
 ### Enterprise-Ready
 - **🏢 Complex Routing Support**: Handle enterprise routing rules with evaluations and decision trees
 - **🔍 Smart Variable Detection**: Automatically detect and configure test values for complex expressions
 - **📊 Enhanced Debugging**: Detailed execution traces with variable inspection and error suggestions
 - **🎯 Context-Aware Testing**: Per-workflow test configurations with object method mocking
+- **🔄 Workflow Management**: Complete import/export workflow lifecycle with data preservation
 
 ## 🚀 Quick Start
 
@@ -162,10 +178,39 @@ The application includes several pre-built examples:
    - Local Ollama
    - Azure OpenAI
    - AWS Bedrock
+   - DeepSeek
    - Custom APIs
 3. **Natural Language Input**: Describe your workflow in plain English
-4. **Interactive Questions**: AI may ask clarifying questions for complex flows
-5. **Automatic Generation**: Generated flows appear on the canvas ready for testing
+   - Example: "Create a flow to check if it's a Tuesday before 9am, if so then set a value to True, if not then False"
+4. **Enhanced Features**:
+   - **🔗 Perfect Connections**: AI creates properly connected sequential condition flows
+   - **🎯 Time Recognition**: Specialized handling for date/time conditions
+   - **📤 Export Integration**: Generated flows include export JSON with copy functionality
+   - **🧠 Context Analysis**: Ask AI to "describe my workflows" or "what's on screen"
+   - **🧪 Test Integration**: AI can help configure and run tests on generated flows
+5. **Interactive Questions**: AI may ask clarifying questions for complex flows
+6. **Automatic Generation**: Generated flows appear on the canvas ready for testing
+
+### Advanced Export/Import Workflow
+
+1. **Export Current or All Tabs**:
+   - Click "📤 Export Workflow" in the toolbar
+   - Choose between "📄 Current Tab Only" or "📑 All Tabs"
+   - Enter custom filename
+   - Review export summary
+   - Click "📤 Export" to download
+
+2. **Perfect Round-Trip**:
+   - Exported workflows preserve original import data
+   - No data loss during export/import cycles
+   - Rule names and expressions remain identical
+   - Original metadata is maintained
+
+3. **Smart Export Features**:
+   - Real-time filename preview with timestamps
+   - Export summary showing nodes, connections, and tab information
+   - One-click JSON copy to clipboard from AI-generated flows
+   - Automatic filtering of empty workflows
 
 ### Testing Your Flow
 

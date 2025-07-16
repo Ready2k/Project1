@@ -1490,7 +1490,7 @@ Be thorough, knowledgeable, and helpful. Think like an expert who understands bo
     // Generate edges to connect nodes
     edges.push(...this.generateEdges(nodes, intent));
     
-    return {
+    const flowData = {
       name: intent.flowName || 'AI Generated Flow',
       nodes,
       edges,
@@ -1499,6 +1499,11 @@ Be thorough, knowledgeable, and helpful. Think like an expert who understands bo
       aiGenerated: true,
       originalPrompt: intent.originalInput
     };
+    
+    // Also generate the import JSON format
+    flowData.importJson = this.convertToImportFormat(intent, nodes, edges);
+    
+    return flowData;
   }
 
   // Helper methods for flow generation
@@ -1511,9 +1516,17 @@ Be thorough, knowledgeable, and helpful. Think like an expert who understands bo
     const patterns = {
       validation: ['validate', 'check', 'verify', 'confirm'],
       calculation: ['calculate', 'compute', 'math', 'formula'],
-      decision: ['decide', 'choose', 'if', 'condition'],
+      decision: ['decide', 'choose', 'if', 'condition', 'tuesday', 'monday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'before', 'after', 'time', 'am', 'pm'],
+      time_routing: ['tuesday', 'monday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'time', 'am', 'pm', 'before', 'after'],
+      queue_routing: ['queue', 'routing', 'route'],
       workflow: ['process', 'workflow', 'steps', 'sequence']
     };
+    
+    // Check for time-based routing first (more specific)
+    if (keywords.some(word => ['tuesday', 'monday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].includes(word)) &&
+        keywords.some(word => ['am', 'pm', 'time', 'before', 'after'].includes(word))) {
+      return 'time_routing';
+    }
     
     for (const [type, words] of Object.entries(patterns)) {
       if (words.some(word => keywords.includes(word))) {
@@ -1527,6 +1540,62 @@ Be thorough, knowledgeable, and helpful. Think like an expert who understands bo
   extractEntities(input) {
     const entities = {};
     const lowerInput = input.toLowerCase();
+    
+    console.log('🔍 Extracting entities from:', input);
+    
+    // Enhanced time/date/condition extraction for Tuesday 9am scenario
+    const conditions = [];
+    
+    // Check for Tuesday + 9am pattern specifically
+    if (lowerInput.includes('tuesday') && (lowerInput.includes('9am') || lowerInput.includes('9:00') || lowerInput.includes('before 9'))) {
+      console.log('🔍 Detected Tuesday + 9am pattern');
+      
+      // Create two conditions for sequential checking
+      conditions.push("today.Equals('TUE')");
+      
+      if (lowerInput.includes('before 9')) {
+        conditions.push("now.Before('09:00')");
+      } else {
+        conditions.push("now.After('09:00')");
+      }
+      
+      entities.conditions = conditions;
+      entities.timeLogic = ['Tuesday check', '9AM time check'];
+      
+      // Set up inputs for testing
+      entities.inputs = [
+        { name: 'today', defaultValue: 'TUE' },
+        { name: 'currentTime', defaultValue: '08:30' }
+      ];
+    }
+    // Check for other day + time patterns
+    else if (lowerInput.match(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/) && 
+             lowerInput.match(/\b(\d{1,2})(am|pm|:\d{2})\b/)) {
+      console.log('🔍 Detected day + time pattern');
+      
+      const dayMatch = lowerInput.match(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/);
+      const timeMatch = lowerInput.match(/\b(\d{1,2})(am|pm|:\d{2})\b/);
+      
+      if (dayMatch && timeMatch) {
+        const dayCode = {
+          'monday': 'MON', 'tuesday': 'TUE', 'wednesday': 'WED',
+          'thursday': 'THU', 'friday': 'FRI', 'saturday': 'SAT', 'sunday': 'SUN'
+        }[dayMatch[1]];
+        
+        conditions.push(`today.Equals('${dayCode}')`);
+        
+        let timeCondition = '';
+        if (lowerInput.includes('before')) {
+          timeCondition = `now.Before('${timeMatch[1].padStart(2, '0')}:00')`;
+        } else {
+          timeCondition = `now.After('${timeMatch[1].padStart(2, '0')}:00')`;
+        }
+        conditions.push(timeCondition);
+        
+        entities.conditions = conditions;
+        entities.timeLogic = [`${dayMatch[1]} check`, `${timeMatch[0]} time check`];
+      }
+    }
     
     // Smart variable detection based on common patterns
     const potentialVariables = [];
@@ -1549,28 +1618,31 @@ Be thorough, knowledgeable, and helpful. Think like an expert who understands bo
       /\b(\w+)\s+and\s+(\w+)(?:\s+(?:validation|check|input))?/gi
     ];
     
-    inputPatterns.forEach(pattern => {
-      let match;
-      while ((match = pattern.exec(input)) !== null) {
-        if (match[1] && match[1].length > 2 && !this.isCommonWord(match[1])) {
-          potentialVariables.push(match[1].toLowerCase());
+    // Only extract variables if we don't already have time-based inputs
+    if (!entities.inputs) {
+      inputPatterns.forEach(pattern => {
+        let match;
+        while ((match = pattern.exec(input)) !== null) {
+          if (match[1] && match[1].length > 2 && !this.isCommonWord(match[1])) {
+            potentialVariables.push(match[1].toLowerCase());
+          }
+          if (match[2] && match[2].length > 2 && !this.isCommonWord(match[2])) {
+            potentialVariables.push(match[2].toLowerCase());
+          }
         }
-        if (match[2] && match[2].length > 2 && !this.isCommonWord(match[2])) {
-          potentialVariables.push(match[2].toLowerCase());
-        }
+      });
+      
+      // Remove duplicates and common words
+      entities.potentialVariables = [...new Set(potentialVariables)]
+        .filter(word => !this.isCommonWord(word));
+      
+      // Convert potential variables to input objects if we found any
+      if (entities.potentialVariables.length > 0) {
+        entities.inputs = entities.potentialVariables.map(variable => ({
+          name: variable,
+          defaultValue: this.getDefaultValueForVariable(variable)
+        }));
       }
-    });
-    
-    // Remove duplicates and common words
-    entities.potentialVariables = [...new Set(potentialVariables)]
-      .filter(word => !this.isCommonWord(word));
-    
-    // Convert potential variables to input objects if we found any
-    if (entities.potentialVariables.length > 0) {
-      entities.inputs = entities.potentialVariables.map(variable => ({
-        name: variable,
-        defaultValue: this.getDefaultValueForVariable(variable)
-      }));
     }
     
     // Extract validation rules for validation flows
@@ -1668,6 +1740,10 @@ Be thorough, knowledgeable, and helpful. Think like an expert who understands bo
     let nodeId = startId;
     let yPosition = startY;
     
+    console.log('🔧 Generating logic nodes for intent:', intent);
+    console.log('🔧 Flow type:', intent.flowType);
+    console.log('🔧 Entities:', intent.entities);
+    
     switch (intent.flowType) {
       case 'validation':
         nodes.push({
@@ -1692,17 +1768,95 @@ Be thorough, knowledgeable, and helpful. Think like an expert who understands bo
           }
         });
         break;
-      default:
-        // Default workflow - add a function node
+        
+      case 'decision':
+      case 'time_routing':
+      case 'date_routing':
+        // Use AI-provided conditions for sophisticated decision logic
+        const conditions = intent.entities.conditions || [];
+        const timeLogic = intent.entities.timeLogic || [];
+        const queueOperations = intent.entities.queueOperations || [];
+        
+        console.log('🔧 Creating decision nodes with conditions:', conditions);
+        console.log('🔧 Time logic:', timeLogic);
+        console.log('🔧 Queue operations:', queueOperations);
+        
+        if (conditions.length > 0) {
+          // Create condition nodes for each AI-provided condition
+          conditions.forEach((condition, index) => {
+            nodes.push({
+              id: String(nodeId++),
+              type: 'condition',
+              position: { x: 200, y: yPosition },
+              data: {
+                label: `Check ${index + 1}`,
+                condition: condition
+              }
+            });
+            yPosition += 180;
+          });
+        } else {
+          // Fallback: create a basic condition node
+          nodes.push({
+            id: String(nodeId++),
+            type: 'condition',
+            position: { x: 200, y: yPosition },
+            data: {
+              label: 'Decision Check',
+              condition: 'value > 0'
+            }
+          });
+        }
+        break;
+        
+      case 'queue_routing':
+        // Handle queue routing with system variables
+        const systemVars = intent.entities.systemVariables || [];
+        const sessionVars = intent.entities.sessionVariables || [];
+        
+        console.log('🔧 Creating queue routing with system vars:', systemVars);
+        console.log('🔧 Session vars:', sessionVars);
+        
+        // Create condition for queue routing
+        let queueCondition = 'queue.AgentStaffed("QueueName") > 0';
+        if (intent.entities.conditions && intent.entities.conditions.length > 0) {
+          queueCondition = intent.entities.conditions[0];
+        }
+        
         nodes.push({
           id: String(nodeId++),
-          type: 'function',
+          type: 'condition',
           position: { x: 200, y: yPosition },
           data: {
-            label: 'Process Data',
-            code: 'return variables;'
+            label: 'Queue Check',
+            condition: queueCondition
           }
         });
+        break;
+        
+      default:
+        // Enhanced default: try to use AI-provided conditions or create a function
+        if (intent.entities.conditions && intent.entities.conditions.length > 0) {
+          nodes.push({
+            id: String(nodeId++),
+            type: 'condition',
+            position: { x: 200, y: yPosition },
+            data: {
+              label: 'Logic Check',
+              condition: intent.entities.conditions[0]
+            }
+          });
+        } else {
+          nodes.push({
+            id: String(nodeId++),
+            type: 'function',
+            position: { x: 200, y: yPosition },
+            data: {
+              label: 'Process Data',
+              code: intent.entities.formula || 'return variables;'
+            }
+          });
+        }
         break;
     }
     
@@ -1712,6 +1866,9 @@ Be thorough, knowledgeable, and helpful. Think like an expert who understands bo
   generateEndNodes(intent, startId, startY) {
     const nodes = [];
     let nodeId = startId;
+    
+    console.log('🏁 Generating end nodes for flow type:', intent.flowType);
+    console.log('🏁 Intent entities:', intent.entities);
     
     // Generate appropriate end nodes based on flow type
     if (intent.flowType === 'validation') {
@@ -1729,7 +1886,61 @@ Be thorough, knowledgeable, and helpful. Think like an expert who understands bo
           data: { label: 'Invalid ✗' }
         }
       );
+    } else if (intent.flowType === 'decision' || intent.flowType === 'time_routing' || intent.flowType === 'date_routing') {
+      // For decision flows (like Tuesday + 9am check), create TRUE/FALSE end nodes
+      const conditions = intent.entities.conditions || [];
+      
+      if (conditions.length > 1) {
+        // Multiple conditions - create TRUE/FALSE end nodes
+        nodes.push(
+          {
+            id: String(nodeId++),
+            type: 'end',
+            position: { x: 350, y: startY },
+            data: { label: 'True ✓' }
+          },
+          {
+            id: String(nodeId++),
+            type: 'end',
+            position: { x: 50, y: startY },
+            data: { label: 'False ✗' }
+          }
+        );
+      } else {
+        // Single condition - still create TRUE/FALSE paths
+        nodes.push(
+          {
+            id: String(nodeId++),
+            type: 'end',
+            position: { x: 350, y: startY },
+            data: { label: 'True ✓' }
+          },
+          {
+            id: String(nodeId++),
+            type: 'end',
+            position: { x: 50, y: startY },
+            data: { label: 'False ✗' }
+          }
+        );
+      }
+    } else if (intent.flowType === 'queue_routing') {
+      // Queue routing flows - create specific end nodes
+      nodes.push(
+        {
+          id: String(nodeId++),
+          type: 'end',
+          position: { x: 350, y: startY },
+          data: { label: 'Route to Queue' }
+        },
+        {
+          id: String(nodeId++),
+          type: 'end',
+          position: { x: 50, y: startY },
+          data: { label: 'Default Route' }
+        }
+      );
     } else {
+      // Default single end node
       nodes.push({
         id: String(nodeId++),
         type: 'end',
@@ -1738,49 +1949,276 @@ Be thorough, knowledgeable, and helpful. Think like an expert who understands bo
       });
     }
     
+    console.log('🏁 Generated end nodes:', nodes.map(n => ({ id: n.id, label: n.data.label })));
     return { nodes, nextId: nodeId };
   }
 
   generateEdges(nodes, intent) {
     const edges = [];
     
-    // Simple linear connection for now
-    for (let i = 0; i < nodes.length - 1; i++) {
-      const currentNode = nodes[i];
-      const nextNode = nodes[i + 1];
+    console.log('🔗 Generating edges for nodes:', nodes.map(n => ({ id: n.id, type: n.type, label: n.data.label })));
+    
+    // Get different node types
+    const startNodes = nodes.filter(n => n.type === 'start');
+    const inputNodes = nodes.filter(n => n.type === 'input');
+    const conditionNodes = nodes.filter(n => n.type === 'condition');
+    const functionNodes = nodes.filter(n => n.type === 'function');
+    const endNodes = nodes.filter(n => n.type === 'end');
+    
+    console.log('🔗 Node breakdown:', {
+      start: startNodes.length,
+      input: inputNodes.length,
+      condition: conditionNodes.length,
+      function: functionNodes.length,
+      end: endNodes.length
+    });
+    
+    // Connect start to first input or first logic node
+    if (startNodes.length > 0) {
+      const startNode = startNodes[0];
+      let nextNode = null;
       
-      if (currentNode.type === 'condition') {
-        // Handle condition node branching
-        const trueNode = nodes.find(n => n.data.label.includes('✓'));
-        const falseNode = nodes.find(n => n.data.label.includes('✗'));
+      if (inputNodes.length > 0) {
+        nextNode = inputNodes[0];
+      } else if (conditionNodes.length > 0) {
+        nextNode = conditionNodes[0];
+      } else if (functionNodes.length > 0) {
+        nextNode = functionNodes[0];
+      } else if (endNodes.length > 0) {
+        nextNode = endNodes[0];
+      }
+      
+      if (nextNode) {
+        edges.push({
+          id: `e${startNode.id}-${nextNode.id}`,
+          source: startNode.id,
+          target: nextNode.id
+        });
+        console.log('🔗 Connected start to:', nextNode.data.label);
+      }
+    }
+    
+    // Connect input nodes in sequence
+    for (let i = 0; i < inputNodes.length - 1; i++) {
+      edges.push({
+        id: `e${inputNodes[i].id}-${inputNodes[i + 1].id}`,
+        source: inputNodes[i].id,
+        target: inputNodes[i + 1].id
+      });
+      console.log('🔗 Connected input nodes:', inputNodes[i].data.label, '->', inputNodes[i + 1].data.label);
+    }
+    
+    // Connect last input to first logic node
+    if (inputNodes.length > 0) {
+      const lastInput = inputNodes[inputNodes.length - 1];
+      let nextLogicNode = null;
+      
+      if (conditionNodes.length > 0) {
+        nextLogicNode = conditionNodes[0];
+      } else if (functionNodes.length > 0) {
+        nextLogicNode = functionNodes[0];
+      } else if (endNodes.length > 0) {
+        nextLogicNode = endNodes[0];
+      }
+      
+      if (nextLogicNode) {
+        edges.push({
+          id: `e${lastInput.id}-${nextLogicNode.id}`,
+          source: lastInput.id,
+          target: nextLogicNode.id
+        });
+        console.log('🔗 Connected last input to logic:', lastInput.data.label, '->', nextLogicNode.data.label);
+      }
+    }
+    
+    // Handle condition nodes - this is the key fix!
+    if (conditionNodes.length > 0) {
+      if (intent.flowType === 'validation' && endNodes.length === 2) {
+        // Validation flow: single condition with TRUE/FALSE paths
+        const condition = conditionNodes[0];
+        const trueNode = endNodes.find(n => n.data.label.includes('✓') || n.data.label.includes('Valid'));
+        const falseNode = endNodes.find(n => n.data.label.includes('✗') || n.data.label.includes('Invalid'));
         
         if (trueNode) {
           edges.push({
-            id: `e${currentNode.id}-${trueNode.id}`,
-            source: currentNode.id,
+            id: `e${condition.id}-${trueNode.id}`,
+            source: condition.id,
             target: trueNode.id,
             sourceHandle: 'true'
           });
+          console.log('🔗 Connected condition TRUE to:', trueNode.data.label);
         }
         
         if (falseNode) {
           edges.push({
-            id: `e${currentNode.id}-${falseNode.id}`,
-            source: currentNode.id,
+            id: `e${condition.id}-${falseNode.id}`,
+            source: condition.id,
             target: falseNode.id,
             sourceHandle: 'false'
           });
+          console.log('🔗 Connected condition FALSE to:', falseNode.data.label);
         }
-      } else if (nextNode.type !== 'end' || nodes.filter(n => n.type === 'end').length === 1) {
-        edges.push({
-          id: `e${currentNode.id}-${nextNode.id}`,
-          source: currentNode.id,
-          target: nextNode.id
-        });
+      } else {
+        // Sequential condition flow (like Tuesday + 9am check)
+        for (let i = 0; i < conditionNodes.length; i++) {
+          const currentCondition = conditionNodes[i];
+          
+          if (i < conditionNodes.length - 1) {
+            // Connect to next condition on TRUE path
+            const nextCondition = conditionNodes[i + 1];
+            edges.push({
+              id: `e${currentCondition.id}-${nextCondition.id}`,
+              source: currentCondition.id,
+              target: nextCondition.id,
+              sourceHandle: 'true'
+            });
+            console.log('🔗 Connected condition TRUE to next condition:', currentCondition.data.label, '->', nextCondition.data.label);
+            
+            // Connect FALSE path to end node
+            if (endNodes.length > 0) {
+              const falseEndNode = endNodes.find(n => n.data.label.includes('False') || n.data.label.includes('✗')) || endNodes[endNodes.length - 1];
+              edges.push({
+                id: `e${currentCondition.id}-${falseEndNode.id}`,
+                source: currentCondition.id,
+                target: falseEndNode.id,
+                sourceHandle: 'false'
+              });
+              console.log('🔗 Connected condition FALSE to end:', currentCondition.data.label, '->', falseEndNode.data.label);
+            }
+          } else {
+            // Last condition - connect both paths to end nodes
+            if (endNodes.length >= 2) {
+              const trueEndNode = endNodes.find(n => n.data.label.includes('True') || n.data.label.includes('✓')) || endNodes[0];
+              const falseEndNode = endNodes.find(n => n.data.label.includes('False') || n.data.label.includes('✗')) || endNodes[1];
+              
+              edges.push({
+                id: `e${currentCondition.id}-${trueEndNode.id}`,
+                source: currentCondition.id,
+                target: trueEndNode.id,
+                sourceHandle: 'true'
+              });
+              console.log('🔗 Connected last condition TRUE to:', trueEndNode.data.label);
+              
+              edges.push({
+                id: `e${currentCondition.id}-${falseEndNode.id}`,
+                source: currentCondition.id,
+                target: falseEndNode.id,
+                sourceHandle: 'false'
+              });
+              console.log('🔗 Connected last condition FALSE to:', falseEndNode.data.label);
+            } else if (endNodes.length === 1) {
+              // Single end node - connect TRUE path
+              edges.push({
+                id: `e${currentCondition.id}-${endNodes[0].id}`,
+                source: currentCondition.id,
+                target: endNodes[0].id,
+                sourceHandle: 'true'
+              });
+              console.log('🔗 Connected last condition TRUE to single end:', endNodes[0].data.label);
+            }
+          }
+        }
       }
     }
     
+    // Connect function nodes to end nodes
+    if (functionNodes.length > 0 && endNodes.length > 0) {
+      functionNodes.forEach(funcNode => {
+        edges.push({
+          id: `e${funcNode.id}-${endNodes[0].id}`,
+          source: funcNode.id,
+          target: endNodes[0].id
+        });
+        console.log('🔗 Connected function to end:', funcNode.data.label, '->', endNodes[0].data.label);
+      });
+    }
+    
+    console.log('🔗 Generated edges:', edges);
     return edges;
+  }
+
+  // Convert generated flow to import JSON format
+  convertToImportFormat(intent, nodes, edges) {
+    console.log('📤 Converting flow to import JSON format');
+    console.log('📤 Intent:', intent);
+    console.log('📤 Flow type:', intent.flowType);
+    
+    // Generate a unique ID for the workflow
+    const workflowId = this.generateWorkflowId(intent.flowName || 'AI_Generated_Flow');
+    
+    // Determine the workflow type and structure based on the flow
+    const conditionNodes = nodes.filter(n => n.type === 'condition');
+    const functionNodes = nodes.filter(n => n.type === 'function');
+    
+    if (conditionNodes.length > 0) {
+      // Decision type workflow
+      const expressions = conditionNodes.map(node => node.data.condition);
+      
+      return {
+        id: workflowId,
+        type: "decision",
+        label: intent.flowName || 'AI Generated Decision',
+        details: {
+          expressions: expressions,
+          resultType: "endpoint"
+        }
+      };
+    } else if (functionNodes.length > 0) {
+      // Endpoint type workflow
+      const functionNode = functionNodes[0];
+      
+      // Extract queue information if present in the function code
+      let queueName = "DefaultQueue";
+      let isDefault = false;
+      
+      if (functionNode.data.code) {
+        const queueMatch = functionNode.data.code.match(/queueName:\s*["']([^"']+)["']/);
+        if (queueMatch) {
+          queueName = queueMatch[1];
+        }
+        
+        const defaultMatch = functionNode.data.code.match(/isDefault:\s*(true|false)/);
+        if (defaultMatch) {
+          isDefault = defaultMatch[1] === 'true';
+        }
+      }
+      
+      return {
+        id: workflowId,
+        type: "endpoint",
+        label: functionNode.data.label || intent.flowName || 'AI Generated Function',
+        details: {
+          queueName: queueName,
+          isDefault: isDefault
+        }
+      };
+    } else {
+      // Default to endpoint type for simple workflows
+      return {
+        id: workflowId,
+        type: "endpoint",
+        label: intent.flowName || 'AI Generated Flow',
+        details: {
+          queueName: "DefaultQueue",
+          isDefault: false
+        }
+      };
+    }
+  }
+
+  // Generate a unique workflow ID
+  generateWorkflowId(flowName) {
+    // Convert flow name to a valid ID format
+    const baseId = flowName
+      .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
+      .replace(/\s+/g, '_') // Replace spaces with underscores
+      .replace(/_{2,}/g, '_') // Replace multiple underscores with single
+      .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
+    
+    // Add timestamp to ensure uniqueness
+    const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+    
+    return `${baseId}_${timestamp}`;
   }
 }
 

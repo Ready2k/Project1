@@ -159,3 +159,96 @@ Located in the main toolbar next to "Load Flow" button.
 - Seamless integration with existing tab system
 - Tab creation, switching, and deletion all supported
 - Import workflows marked with `imported: true` flag
+
+## Export System
+
+### Overview
+The Flow Builder includes a comprehensive export system that creates import-compatible JSON files, supporting both individual workflows and bulk exports.
+
+### Export Features
+
+#### Export Dialog
+- **Professional Interface**: Modal dialog with export options
+- **Filename Customization**: Enter custom filenames with automatic sanitization
+- **Export Scope Selection**: Choose between current tab or all tabs
+- **Real-time Preview**: Shows export summary and filename preview
+
+#### Export Scopes
+
+**Current Tab Export:**
+- Exports only the active workflow tab
+- Preserves original import data if available
+- Creates single workflow JSON object
+
+**All Tabs Export:**
+- Exports all workflows with content
+- Filters out empty workflows automatically
+- Creates JSON array of workflow objects
+- Maintains individual workflow integrity
+
+#### Data Preservation
+
+**Original Data Priority:**
+- Imported workflows: Preserves exact original JSON structure
+- Manual workflows: Creates proper import format from current structure
+- Mixed exports: Handles both types correctly in same export
+
+**Lossless Round-Trip:**
+- Export → Import → Export produces identical results
+- Rule names, expressions, and metadata preserved
+- No data corruption or loss during export/import cycles
+
+### Export Process
+
+1. **Click "📤 Export Workflow"** in toolbar
+2. **Select Export Scope**: Current tab or all tabs
+3. **Enter Filename**: Custom name with automatic timestamp
+4. **Review Summary**: Preview of export contents
+5. **Download**: JSON file ready for import
+
+### Export JSON Structure
+
+**Single Workflow Export:**
+```json
+{
+  "id": "workflow_identifier",
+  "type": "decision|endpoint",
+  "label": "Workflow_Name",
+  "details": {
+    "expressions": ["condition1", "condition2"],
+    "resultType": "endpoint"
+  }
+}
+```
+
+**Multiple Workflows Export:**
+```json
+[
+  {
+    "id": "workflow1_id",
+    "type": "decision",
+    "label": "First_Workflow",
+    "details": { ... }
+  },
+  {
+    "id": "workflow2_id", 
+    "type": "endpoint",
+    "label": "Second_Workflow",
+    "details": { ... }
+  }
+]
+```
+
+### Technical Implementation
+
+#### Export Logic
+- `convertFlowToImportFormat()`: Main export conversion function
+- Original data preservation for imported workflows
+- Smart format generation for manual workflows
+- Unique ID generation with timestamps
+
+#### File Management
+- Automatic filename sanitization
+- Timestamp-based unique naming
+- Browser download integration
+- Success feedback with file details
