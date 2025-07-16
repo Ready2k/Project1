@@ -817,33 +817,126 @@ class AIFlowAgent {
     }
   }
 
-  // Create a structured prompt for intent analysis
+  // Create a comprehensive system prompt with tool capabilities
   createIntentPrompt(input) {
-    return `Analyze this user request for creating a workflow and extract structured information:
+    const systemContext = this.buildSystemContext();
+    
+    return `# Flow Builder AI Assistant
 
-User Request: "${input}"
+You are an expert AI assistant for a visual workflow creation tool called Flow Builder. You help users create, test, and analyze complex workflows using natural language.
 
-Please analyze and respond with a JSON object containing:
+## Your Capabilities & Tool Knowledge:
+
+### Flow Builder Features:
+- **Visual Workflow Design**: Drag-and-drop interface with multiple node types
+- **Multi-Tab System**: Users can have multiple workflows (Rule1, Rule2, etc.) in separate tabs
+- **JSON Import**: Complex routing workflows can be imported from JSON with system variables
+- **Real-time Testing**: Workflows can be tested with configurable values
+- **Rule Linking**: Workflows can reference and navigate to other workflows
+
+### Node Types You Can Create:
+1. **Start Node**: Entry point (always needed)
+2. **Input Node**: Define variables (name, value) - e.g., age=25, email="user@test.com"
+3. **Condition Node**: Branching logic with TRUE/FALSE paths
+   - Simple: \`age >= 18\`, \`email.includes("@")\`
+   - Complex: \`queue.AgentStaffed('QueueName')>0\`
+   - Time-based: \`now.After('09:00')\`, \`today.Equals('TUE')\`
+   - System variables: \`session['key']=='value'\`
+4. **Function Node**: Execute JavaScript code, transform data
+5. **End Node**: Terminal points with labels
+
+### Advanced Capabilities:
+- **System Variables**: Handle \${QueueNameToARN/ServiceName} patterns
+- **Session Variables**: Process session['key'] expressions  
+- **Queue Operations**: queue.AgentStaffed(), queue.QueueDepth(), queue.LongestWaitTime()
+- **Time/Date Logic**: now.After('09:00'), today.Equals('MON','WED','FRI'), date.After('2021-03-07')
+- **Testing Integration**: Configure test values and execute workflows
+- **Context Analysis**: Describe current workspace and workflows
+
+### Current Workspace Context:
+${systemContext}
+
+## Your Role:
+Act as a knowledgeable human assistant who understands workflows deeply. When users ask you to:
+- **Create flows**: Design complete workflows with proper node connections
+- **Test flows**: Help configure test values and interpret results  
+- **Describe flows**: Explain what workflows do and how they work
+- **Analyze workspace**: Describe current tabs, conditions, and structure
+
+## User Request:
+"${input}"
+
+## Response Format:
+Respond with a JSON object containing your analysis and recommendations:
+
 {
-  "flowType": "validation|calculation|decision|workflow",
+  "flowType": "validation|calculation|decision|time_routing|queue_routing|workflow",
   "entities": {
-    "inputs": [{"name": "variableName", "defaultValue": "defaultVal"}],
+    "inputs": [{"name": "variableName", "defaultValue": "value", "description": "what this input represents"}],
+    "conditions": ["condition expressions with explanations"],
+    "systemVariables": ["system variables needed like QueueNameToARN/ServiceName"],
+    "sessionVariables": ["session variables like OECachedServiceIdentifier"],
+    "timeLogic": ["time/date conditions if applicable"],
+    "queueOperations": ["queue operations if applicable"],
     "validationRule": "condition if validation type",
-    "formula": "calculation if calculation type",
-    "conditions": ["list of conditions if decision type"]
+    "formula": "calculation if calculation type"
   },
-  "flowName": "suggested name for the flow",
+  "flowName": "descriptive name for the workflow",
   "confidence": 0.0-1.0,
-  "reasoning": "brief explanation of the analysis"
+  "reasoning": "detailed explanation of your analysis and design decisions",
+  "testingGuidance": "suggestions for testing this workflow",
+  "humanExplanation": "explain what this workflow does in plain English"
 }
 
-Focus on identifying:
-1. What type of workflow this is (validation, calculation, decision, or general workflow)
-2. What inputs/variables are needed
-3. What logic or conditions should be applied
-4. What the expected outputs are
+Be thorough, knowledgeable, and helpful. Think like an expert who understands both the technical implementation and the business logic behind workflows.`;
+  }
 
-Be specific and practical in your analysis.`;
+  // Build comprehensive system context
+  buildSystemContext() {
+    if (!this.workflowContext) {
+      return "No workspace context available - user hasn't loaded any workflows yet.";
+    }
+
+    const ctx = this.workflowContext;
+    let context = `**Current Workspace:**\n`;
+    context += `- Total workflows: ${ctx.workflows.length}\n`;
+    context += `- Active workflow: ${ctx.workflows.find(w => w.id === ctx.activeWorkflowId)?.name || 'None'}\n`;
+    context += `- Current nodes: ${ctx.currentNodes.length}\n\n`;
+
+    // Workflow details
+    context += `**Available Workflows:**\n`;
+    ctx.workflows.forEach(workflow => {
+      const isActive = workflow.id === ctx.activeWorkflowId;
+      context += `- ${workflow.name}${isActive ? ' (ACTIVE)' : ''}: ${workflow.nodeCount} nodes`;
+      if (workflow.isImported) context += ` (Imported from JSON)`;
+      if (workflow.hasConditions) {
+        const conditionCount = workflow.conditions.filter(c => c).length;
+        context += ` - ${conditionCount} conditions`;
+      }
+      context += `\n`;
+    });
+
+    // Current workflow details
+    if (ctx.currentNodes.length > 0) {
+      context += `\n**Active Workflow Details:**\n`;
+      const conditions = ctx.currentNodes.filter(n => n.type === 'condition' && n.condition);
+      if (conditions.length > 0) {
+        context += `**Conditions:**\n`;
+        conditions.forEach((node, index) => {
+          context += `${index + 1}. ${node.condition}\n`;
+        });
+      }
+
+      const inputs = ctx.currentNodes.filter(n => n.type === 'input');
+      if (inputs.length > 0) {
+        context += `**Input Variables:**\n`;
+        inputs.forEach(node => {
+          context += `- ${node.variable || 'variable'} = ${node.value || 'value'}\n`;
+        });
+      }
+    }
+
+    return context;
   }
 
   // Parse AI response for intent analysis
@@ -854,22 +947,29 @@ Be specific and practical in your analysis.`;
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         
-        // Validate and normalize the response
+        // Validate and normalize the enhanced response
         return {
           flowType: parsed.flowType || 'workflow',
           entities: {
             inputs: parsed.entities?.inputs || [],
+            conditions: parsed.entities?.conditions || [],
+            systemVariables: parsed.entities?.systemVariables || [],
+            sessionVariables: parsed.entities?.sessionVariables || [],
+            timeLogic: parsed.entities?.timeLogic || [],
+            queueOperations: parsed.entities?.queueOperations || [],
             validationRule: parsed.entities?.validationRule,
-            formula: parsed.entities?.formula,
-            conditions: parsed.entities?.conditions || []
+            formula: parsed.entities?.formula
           },
           flowName: parsed.flowName || 'AI Generated Flow',
-          confidence: Math.min(Math.max(parsed.confidence || 0.8, 0), 1),
-          reasoning: parsed.reasoning || 'AI analysis completed'
+          confidence: Math.min(Math.max(parsed.confidence || 0.9, 0), 1),
+          reasoning: parsed.reasoning || 'AI analysis completed',
+          testingGuidance: parsed.testingGuidance || 'Test with various input values',
+          humanExplanation: parsed.humanExplanation || 'This workflow processes your inputs and provides results based on the defined logic.'
         };
       }
     } catch (error) {
       console.error('Failed to parse AI response:', error);
+      console.error('AI Response was:', aiResponse);
     }
     
     // Fallback parsing if JSON extraction fails
