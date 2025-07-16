@@ -729,11 +729,11 @@ function App() {
 
     // Helper function to evaluate conditions with test configuration
     const evaluateConditionWithTestConfig = (condition, testConfig, variables) => {
+        let evaluatedCondition = condition;
+        
         try {
             console.log('Evaluating condition:', condition);
             console.log('Test config:', testConfig);
-            
-            let evaluatedCondition = condition;
             
             // STEP 1: Replace system variables ${...} with test config values
             // Handle both quoted and unquoted system variables
