@@ -595,7 +595,7 @@ function App() {
         [reactFlowInstance, setNodes]
     );
 
-    const testFlow = useCallback(() => {
+    const testFlow = useCallback((testConfig = {}) => {
         const results = [];
         const variables = {};
         const pathTrace = [];
@@ -637,24 +637,18 @@ function App() {
                 // Evaluate condition
                 try {
                     const originalCondition = node.data.condition;
-                    // Better variable replacement - only replace whole words that are variables
-                    const condition = originalCondition.replace(/\b(\w+)\b/g, (match) => {
-                        if (currentVars.hasOwnProperty(match)) {
-                            const value = currentVars[match];
-                            return typeof value === 'string' ? `"${value}"` : value;
-                        }
-                        return match;
-                    });
-
-                    // eslint-disable-next-line no-eval
-                    const result = eval(condition);
+                    
+                    // Create mock objects and evaluate condition with test configuration
+                    const result = evaluateConditionWithTestConfig(originalCondition, testConfig, currentVars);
+                    const displayCondition = createDisplayCondition(originalCondition, testConfig, currentVars);
+                    
                     results.push({
                         nodeId: node.id,
-                        message: `Condition "${originalCondition}" → "${condition}" = ${result}`,
+                        message: `Condition "${originalCondition}" → "${displayCondition}" = ${result}`,
                         variables: { ...currentVars },
                         conditionDetails: {
                             original: originalCondition,
-                            evaluated: condition,
+                            evaluated: displayCondition,
                             result: result
                         }
                     });
@@ -733,12 +727,116 @@ function App() {
         return results;
     }, [nodes, edges]);
 
+    // Helper function to evaluate conditions with test configuration
+    const evaluateConditionWithTestConfig = (condition, testConfig, variables) => {
+        try {
+            // Create mock objects based on test configuration
+            const mockObjects = createMockObjects(testConfig);
+            
+            // Create evaluation context with variables and mock objects
+            const evalContext = { ...variables, ...mockObjects };
+            
+            // Replace variables in condition
+            let evaluatedCondition = condition;
+            
+            // Replace simple variables
+            Object.keys(variables).forEach(varName => {
+                const regex = new RegExp(`\\b${varName}\\b`, 'g');
+                const value = variables[varName];
+                const replacement = typeof value === 'string' ? `"${value}"` : value;
+                evaluatedCondition = evaluatedCondition.replace(regex, replacement);
+            });
+            
+            // Handle object method calls with test config values
+            Object.keys(testConfig).forEach(configKey => {
+                if (configKey.includes('.')) {
+                    const [objectName, methodName] = configKey.split('.');
+                    const configValue = testConfig[configKey];
+                    const methodPattern = new RegExp(`${objectName}\\.${methodName}\\([^)]*\\)`, 'g');
+                    evaluatedCondition = evaluatedCondition.replace(methodPattern, configValue);
+                }
+            });
+            
+            // Handle session object access
+            if (condition.includes("session['") || condition.includes('session["')) {
+                const sessionMatches = condition.match(/session\[['"]([^'"]+)['"]\]/g);
+                if (sessionMatches) {
+                    sessionMatches.forEach(match => {
+                        const key = match.match(/session\[['"]([^'"]+)['"]\]/)[1];
+                        const configValue = testConfig[`session.${key}`] || `"${key}_value"`;
+                        evaluatedCondition = evaluatedCondition.replace(match, configValue);
+                    });
+                }
+            }
+            
+            // eslint-disable-next-line no-eval
+            return eval(evaluatedCondition);
+        } catch (error) {
+            console.warn('Error evaluating condition:', error);
+            return false;
+        }
+    };
+
+    // Helper function to create display version of condition
+    const createDisplayCondition = (condition, testConfig, variables) => {
+        let displayCondition = condition;
+        
+        // Replace variables with their values
+        Object.keys(variables).forEach(varName => {
+            const regex = new RegExp(`\\b${varName}\\b`, 'g');
+            const value = variables[varName];
+            displayCondition = displayCondition.replace(regex, `${varName}=${value}`);
+        });
+        
+        // Replace object method calls with configured values
+        Object.keys(testConfig).forEach(configKey => {
+            if (configKey.includes('.')) {
+                const [objectName, methodName] = configKey.split('.');
+                const configValue = testConfig[configKey];
+                const methodPattern = new RegExp(`${objectName}\\.${methodName}\\([^)]*\\)`, 'g');
+                displayCondition = displayCondition.replace(methodPattern, `${objectName}.${methodName}()=${configValue}`);
+            }
+        });
+        
+        // Handle session object access
+        if (condition.includes("session['") || condition.includes('session["')) {
+            const sessionMatches = condition.match(/session\[['"]([^'"]+)['"]\]/g);
+            if (sessionMatches) {
+                sessionMatches.forEach(match => {
+                    const key = match.match(/session\[['"]([^'"]+)['"]\]/)[1];
+                    const configValue = testConfig[`session.${key}`] || `"${key}_value"`;
+                    displayCondition = displayCondition.replace(match, `session['${key}']=${configValue}`);
+                });
+            }
+        }
+        
+        return displayCondition;
+    };
+
+    // Helper function to create mock objects for evaluation
+    const createMockObjects = (testConfig) => {
+        const mocks = {};
+        
+        // Create mock functions for each configured object method
+        Object.keys(testConfig).forEach(configKey => {
+            if (configKey.includes('.')) {
+                const [objectName, methodName] = configKey.split('.');
+                if (!mocks[objectName]) {
+                    mocks[objectName] = {};
+                }
+                mocks[objectName][methodName] = () => testConfig[configKey];
+            }
+        });
+        
+        return mocks;
+    };
+
     const getSuggestionForError = (errorMessage, condition, variables) => {
         const availableVars = Object.keys(variables).join(', ');
 
         if (errorMessage.includes('is not defined')) {
             const undefinedVar = errorMessage.match(/(\w+) is not defined/)?.[1];
-            return `Variable "${undefinedVar}" not found. Available variables: ${availableVars}`;
+            return `Variable "${undefinedVar}" not found. Available variables: ${availableVars}. Try configuring test values in Test Config.`;
         }
 
         if (errorMessage.includes('Unexpected token')) {
@@ -746,10 +844,10 @@ function App() {
         }
 
         if (errorMessage.includes('Cannot read property')) {
-            return 'Trying to access property of undefined variable. Check variable names.';
+            return 'Trying to access property of undefined variable. Check variable names or configure test values.';
         }
 
-        return `Available variables: ${availableVars}. Try using templates for common patterns.`;
+        return `Available variables: ${availableVars}. Try using Test Config to set values for objects like queue, date, session, etc.`;
     };
 
     const animateExecution = useCallback(async (pathTrace) => {

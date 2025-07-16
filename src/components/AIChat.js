@@ -134,7 +134,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
     try {
       const agent = new AIFlowAgent(config);
       const testResult = await agent.testConnection();
-      
+
       if (testResult.success) {
         setConnectionStatus({
           type: 'success',
@@ -164,7 +164,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
       type: 'success',
       message: '💾 Configuration saved successfully!'
     });
-    
+
     // Clear status after 2 seconds
     setTimeout(() => setConnectionStatus(null), 2000);
   };
@@ -209,7 +209,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
         if (response.flowData && response.flowData.isUsingFallback) {
           addMessage('system', response.flowData.fallbackReason);
         }
-        
+
         // Show the AI's thinking process
         if (response.auditTrail && response.auditTrail.length > 0) {
           response.auditTrail.forEach((step, index) => {
@@ -217,7 +217,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
               addMessage('ai', step);
             }, index * 800); // Stagger the messages
           });
-          
+
           // Final success message after all audit steps
           setTimeout(() => {
             addMessage('ai', "Perfect! I've created your flow. You can see it on the canvas and test it right away. Feel free to ask me to modify anything or create another flow!");
@@ -230,7 +230,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
       }
     } catch (error) {
       console.error('AI Agent Error:', error);
-      
+
       // Show user-friendly error message based on error type
       let userMessage = "I'm sorry, I encountered an error processing your request.";
       if (error.message.includes('404')) {
@@ -240,7 +240,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
       } else if (error.message.includes('429')) {
         userMessage = "⏱️ The AI service is currently busy. I'll use my enhanced capabilities to help you build flows right away!";
       }
-      
+
       addMessage('system', userMessage);
       addMessage('ai', "Try asking me to create a specific type of flow, like 'Create an email validation flow' or 'Make a calculator flow'.");
     }
@@ -369,7 +369,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
             <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#333' }}>
               ⚙️ AI Configuration
             </h4>
-            
+
             {/* Provider Selection */}
             <div style={{ marginBottom: '16px' }}>
               <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: 'bold', color: '#333' }}>
@@ -558,10 +558,10 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
                 maxWidth: '80%',
                 padding: '8px 12px',
                 borderRadius: '12px',
-                background: message.type === 'user' ? '#007bff' : 
-                          message.type === 'system' ? '#fff3cd' : '#f8f9fa',
-                color: message.type === 'user' ? 'white' : 
-                       message.type === 'system' ? '#856404' : '#333',
+                background: message.type === 'user' ? '#007bff' :
+                  message.type === 'system' ? '#fff3cd' : '#f8f9fa',
+                color: message.type === 'user' ? 'white' :
+                  message.type === 'system' ? '#856404' : '#333',
                 border: message.type === 'system' ? '1px solid #ffeaa7' : 'none',
                 fontSize: '14px',
                 lineHeight: '1.4',

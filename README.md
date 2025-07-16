@@ -1,17 +1,31 @@
 # Flow Builder 🔄
 
-A visual workflow creation tool built with React and ReactFlow. Create, test, and validate logical flows using an intuitive drag-and-drop interface.
+A powerful visual workflow creation tool built with React and ReactFlow. Create, test, and validate complex logical flows using an intuitive drag-and-drop interface with advanced features for enterprise workflow management.
 
 ![Flow Builder Screenshot](https://via.placeholder.com/800x400/667eea/ffffff?text=Flow+Builder+Interface)
 
 ## ✨ Features
 
+### Core Workflow Features
 - **🎨 Visual Flow Design**: Drag-and-drop interface for creating workflows
 - **⚡ Real-time Validation**: Automatic validation with error/warning reporting
 - **🧪 Flow Execution**: Test flows with variable tracking and execution path visualization
 - **💾 Save/Load Flows**: Export flows as JSON files and import them back
 - **📚 Template System**: Pre-built example flows and condition templates
-- **🎯 Interactive Testing**: Step-by-step execution with variable inspection
+
+### Advanced Features
+- **📑 Multi-Tab Workflow System**: Manage multiple workflows simultaneously with independent tabs
+- **📥 JSON Workflow Import**: Import complex routing workflows from JSON with automatic conversion
+- **🔗 Rule Linking & Navigation**: Click-to-jump between related workflows with visual link indicators
+- **🧪 Dynamic Test Configurator**: Context-aware test configuration for complex expressions
+- **🤖 AI-Powered Flow Generation**: Natural language workflow creation with multiple AI providers
+- **⚙️ Integrated AI Settings**: Configure AI providers directly within the chat interface
+
+### Enterprise-Ready
+- **🏢 Complex Routing Support**: Handle enterprise routing rules with evaluations and decision trees
+- **🔍 Smart Variable Detection**: Automatically detect and configure test values for complex expressions
+- **📊 Enhanced Debugging**: Detailed execution traces with variable inspection and error suggestions
+- **🎯 Context-Aware Testing**: Per-workflow test configurations with object method mocking
 
 ## 🚀 Quick Start
 
@@ -82,17 +96,96 @@ The application includes several pre-built examples:
 - **🧮 Math Calculator**: Process numbers with functions
 - **🔐 Password Strength**: Check password requirements
 
+### Multi-Tab Workflow Management
+
+1. **Create New Tabs**: Click the "+" button to add new workflow tabs
+2. **Switch Between Workflows**: Click on tab names to switch between different workflows
+3. **Independent State**: Each tab maintains its own nodes, edges, and configuration
+4. **Import Multiple Workflows**: JSON import automatically creates separate tabs for each workflow
+
+### JSON Workflow Import
+
+1. **Click "Import Workflows"** in the toolbar
+2. **Select JSON file** containing workflow definitions
+3. **Automatic Conversion**: Complex routing rules are converted to visual flows
+4. **Tab Creation**: Each workflow becomes a separate tab (Rule1, Rule2, etc.)
+
+**Supported JSON Format:**
+```json
+[
+  {
+    "Id": "TBC_Routing",
+    "Name": "MyWorkflow",
+    "Evaluations": [
+      {
+        "Expression": "queue.AgentStaffed('QueueName')>0",
+        "Order": 0,
+        "Result": {
+          "ResultType": "endpoint",
+          "ResultValue": { "EndPoint": { "Qname": "TargetQueue" } }
+        }
+      }
+    ],
+    "DefaultResult": {
+      "ResultType": "endpoint", 
+      "ResultValue": { "EndPoint": { "Qname": "DefaultQueue" } }
+    }
+  }
+]
+```
+
+### Rule Linking & Navigation
+
+- **Visual Link Icons**: End nodes with references to other rules show 🔗 link icons
+- **Click to Navigate**: Click on linked end nodes to jump to the referenced rule
+- **Smart Highlighting**: Target start nodes are highlighted when navigating
+- **Automatic Matching**: Links are created based on decision names in your workflows
+
+### Dynamic Test Configuration
+
+1. **Click "⚙️ Test Config"** in the sidebar to expand the configuration panel
+2. **Auto-Detection**: Variables and object methods are automatically detected from conditions
+3. **Configure Values**: Set test values for detected variables:
+   - `queue.AgentStaffed()` → Number input
+   - `date.After()` → Date input  
+   - `session['key']` → Text input
+   - `now.Before()` → Time input
+4. **Context-Aware**: Each workflow tab has its own test configuration
+5. **Run Tests**: Click "🧪 Run Test" to execute with your configured values
+
+### AI-Powered Flow Generation
+
+1. **Click "🤖 AI Assistant"** in the toolbar
+2. **Configure AI Provider**: Click the ⚙️ gear icon to set up your AI provider:
+   - OpenAI (GPT-3.5, GPT-4)
+   - Anthropic Claude
+   - Local Ollama
+   - Azure OpenAI
+   - AWS Bedrock
+   - Custom APIs
+3. **Natural Language Input**: Describe your workflow in plain English
+4. **Interactive Questions**: AI may ask clarifying questions for complex flows
+5. **Automatic Generation**: Generated flows appear on the canvas ready for testing
+
 ### Testing Your Flow
 
-1. **Click "Run Test"** in the sidebar to execute your flow
+#### Basic Testing
+1. **Click "🧪 Run Test"** in the sidebar to execute your flow
 2. **Watch the execution**: Nodes light up as they're processed
 3. **Review results**: Check the test results panel for detailed output
 4. **Debug issues**: Use validation warnings to fix flow problems
+
+#### Advanced Testing (for Complex Workflows)
+1. **Configure Test Values**: Use "⚙️ Test Config" to set values for complex expressions
+2. **Object Method Mocking**: Configure return values for `queue.AgentStaffed()`, `date.After()`, etc.
+3. **Session Variable Testing**: Set test values for `session['key']` expressions
+4. **Per-Tab Configuration**: Each workflow tab can have different test configurations
 
 ### Saving and Loading
 
 - **Save**: Click the "Save Flow" button in the toolbar, enter a name, and download the JSON file
 - **Load**: Click "Load Flow" and select a previously saved JSON file
+- **Import**: Click "Import Workflows" to import complex JSON workflow definitions
 
 ## 🛠️ Development
 

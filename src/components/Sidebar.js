@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
+import TestConfigurator from './TestConfigurator';
 
 const Sidebar = ({ nodes, edges, onTestFlow, testCases, onLoadTestCase }) => {
   const [testResults, setTestResults] = useState(null);
   const [showTestCases, setShowTestCases] = useState(false);
+  const [testConfig, setTestConfig] = useState({});
+  const [showTestConfig, setShowTestConfig] = useState(false);
 
   const onDragStart = (event, nodeType) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
@@ -10,7 +13,7 @@ const Sidebar = ({ nodes, edges, onTestFlow, testCases, onLoadTestCase }) => {
   };
 
   const runTest = () => {
-    const results = onTestFlow();
+    const results = onTestFlow(testConfig);
     setTestResults(results);
   };
 
@@ -61,6 +64,35 @@ const Sidebar = ({ nodes, edges, onTestFlow, testCases, onLoadTestCase }) => {
       <div style={{ marginTop: '30px' }}>
         <h3>Actions</h3>
         
+        {/* Test Configuration Button */}
+        <button 
+          onClick={() => setShowTestConfig(!showTestConfig)}
+          style={{
+            width: '100%',
+            padding: '8px',
+            background: '#6f42c1',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            marginBottom: '8px'
+          }}
+        >
+          ⚙️ Test Config {showTestConfig ? '▼' : '▶'}
+        </button>
+
+        {/* Test Configuration Panel */}
+        {showTestConfig && (
+          <div style={{ marginBottom: '10px' }}>
+            <TestConfigurator 
+              nodes={nodes}
+              onConfigChange={setTestConfig}
+              currentConfig={testConfig}
+            />
+          </div>
+        )}
+
         {/* Test Flow Button */}
         <button 
           onClick={runTest}
