@@ -815,17 +815,61 @@ function App() {
 
 
     const handleHighlightNode = useCallback((nodeId) => {
-        setHighlightedNode(nodeId);
+        try {
+            setHighlightedNode(nodeId);
 
-        // Find and center the node
-        const node = nodes.find(n => n.id === nodeId);
-        if (node && reactFlowInstance) {
-            reactFlowInstance.setCenter(node.position.x + 75, node.position.y + 50, { zoom: 1.2 });
+            // Find and center the node with a slight delay to prevent ResizeObserver issues
+            setTimeout(() => {
+                const node = nodes.find(n => n.id === nodeId);
+                if (node && reactFlowInstance) {
+                    reactFlowInstance.setCenter(node.position.x + 75, node.position.y + 50, { zoom: 1.2 });
+                }
+            }, 50);
+
+            // Clear highlight after 3 seconds
+            setTimeout(() => setHighlightedNode(null), 3000);
+        } catch (error) {
+            console.warn('Error highlighting node:', error);
         }
-
-        // Clear highlight after 3 seconds
-        setTimeout(() => setHighlightedNode(null), 3000);
     }, [nodes, reactFlowInstance]);
+
+    // Navigate to a linked rule by decision name
+    const handleNavigateToRule = useCallback((decisionName) => {
+        console.log(`Navigating to rule with decision name: "${decisionName}"`);
+        
+        // Find the workflow that matches this decision name exactly
+        // First try exact match, then try partial match
+        let targetWorkflow = workflows.find(workflow => 
+            workflow.originalData && workflow.originalData.Name === decisionName
+        );
+        
+        // If no exact match, try finding by name containing the decision name
+        if (!targetWorkflow) {
+            targetWorkflow = workflows.find(workflow => 
+                workflow.name && workflow.name.includes(decisionName)
+            );
+        }
+        
+        if (targetWorkflow) {
+            console.log(`Found target workflow: "${targetWorkflow.name}" (ID: ${targetWorkflow.id})`);
+            
+            // Switch to the target workflow
+            switchWorkflow(targetWorkflow.id);
+            
+            // After switching, find and highlight the Start node
+            setTimeout(() => {
+                const startNode = targetWorkflow.nodes.find(node => node.type === 'start');
+                if (startNode) {
+                    console.log(`Highlighting start node: ${startNode.id}`);
+                    handleHighlightNode(startNode.id);
+                }
+            }, 200); // Small delay to ensure the workflow has switched
+        } else {
+            console.warn(`No workflow found for decision name: "${decisionName}"`);
+            console.log('Available workflows:', workflows.map(w => ({ name: w.name, originalName: w.originalData?.Name })));
+            alert(`Could not find a rule for "${decisionName}"`);
+        }
+    }, [workflows, switchWorkflow, handleHighlightNode]);
 
     // Load flow from file or test case
     const loadFlow = useCallback((flowData) => {
@@ -1114,7 +1158,14 @@ function App() {
                 />
                 <div className="reactflow-wrapper">
                     <ReactFlow
-                        nodes={nodes}
+                        nodes={nodes.map(node => ({
+                            ...node,
+                            data: {
+                                ...node.data,
+                                onNavigateToRule: handleNavigateToRule,
+                                isHighlighted: highlightedNode === node.id
+                            }
+                        }))}
                         edges={edges}
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}

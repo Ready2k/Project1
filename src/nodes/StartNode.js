@@ -19,13 +19,16 @@ const StartNode = ({ data, id }) => {
     <div style={{
       padding: '10px 20px',
       borderRadius: '50px',
-      background: '#28a745',
-      color: 'white',
-      border: '2px solid #1e7e34',
+      background: data.isHighlighted ? '#ffc107' : '#28a745',
+      color: data.isHighlighted ? '#000' : 'white',
+      border: data.isHighlighted ? '3px solid #ff6b35' : '2px solid #1e7e34',
       minWidth: '100px',
       textAlign: 'center',
       fontWeight: 'bold',
-      position: 'relative'
+      position: 'relative',
+      boxShadow: data.isHighlighted ? '0 0 20px rgba(255, 107, 53, 0.6)' : 'none',
+      transform: data.isHighlighted ? 'scale(1.1)' : 'scale(1)',
+      transition: 'all 0.3s ease'
     }}>
       <button
         onClick={onDelete}
