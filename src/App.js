@@ -1476,6 +1476,11 @@ function App() {
                     onFlowGenerated={handleAIFlowGenerated}
                     onClose={() => setShowAIChat(false)}
                     aiConfig={aiConfig}
+                    workflows={workflows}
+                    activeWorkflowId={activeWorkflowId}
+                    nodes={nodes}
+                    edges={edges}
+                    onTestFlow={testFlowWithAnimation}
                 />
             )}
         </div>

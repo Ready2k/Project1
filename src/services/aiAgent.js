@@ -5,6 +5,8 @@ class AIFlowAgent {
   constructor(config = null) {
     this.conversationHistory = [];
     this.currentFlowContext = null;
+    this.workflowContext = null; // Store all workflow tabs context
+    this.testingCallback = null; // Callback to run tests
     this.config = config || this.loadConfig();
     
     console.log('🤖 AIFlowAgent initialized with config:', {
@@ -13,6 +15,49 @@ class AIFlowAgent {
       model: this.config.model,
       configSource: config ? 'provided' : 'localStorage'
     });
+  }
+
+  // Set workflow context for AI to understand current state
+  setWorkflowContext(workflows, activeWorkflowId, nodes, edges) {
+    this.workflowContext = {
+      workflows: workflows.map(w => ({
+        id: w.id,
+        name: w.name,
+        nodeCount: w.nodes?.length || 0,
+        hasConditions: w.nodes?.some(n => n.type === 'condition') || false,
+        conditions: w.nodes?.filter(n => n.type === 'condition').map(n => n.data?.condition) || [],
+        isImported: w.imported || false,
+        originalData: w.originalData
+      })),
+      activeWorkflowId,
+      currentNodes: nodes.map(n => ({
+        id: n.id,
+        type: n.type,
+        label: n.data?.label,
+        condition: n.data?.condition,
+        variable: n.data?.variable,
+        value: n.data?.value,
+        code: n.data?.code
+      })),
+      currentEdges: edges.map(e => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle
+      }))
+    };
+    
+    console.log('🧠 AI Context updated:', {
+      totalWorkflows: this.workflowContext.workflows.length,
+      activeWorkflow: this.workflowContext.workflows.find(w => w.id === activeWorkflowId)?.name,
+      currentNodeCount: this.workflowContext.currentNodes.length
+    });
+  }
+
+  // Set testing callback for AI to run tests
+  setTestingCallback(callback) {
+    this.testingCallback = callback;
+    console.log('🧪 AI Testing integration enabled');
   }
 
   loadConfig() {
@@ -235,6 +280,16 @@ class AIFlowAgent {
 
   // Main entry point for natural language input
   async processNaturalLanguage(userInput) {
+    // Check if user is asking for context analysis
+    if (this.isContextAnalysisRequest(userInput)) {
+      return await this.analyzeCurrentContext(userInput);
+    }
+
+    // Check if user wants to run tests
+    if (this.isTestRequest(userInput)) {
+      return await this.handleTestRequest(userInput);
+    }
+
     const intent = await this.parseIntent(userInput);
     const questions = this.generateClarifyingQuestions(intent);
     
@@ -261,6 +316,296 @@ class AIFlowAgent {
       type: 'flow',
       flowData: flowData,
       auditTrail: auditTrail
+    };
+  }
+
+  // Check if user is asking for context analysis
+  isContextAnalysisRequest(input) {
+    const lowerInput = input.toLowerCase();
+    const contextKeywords = [
+      'what\'s on screen', 'describe', 'explain', 'what do i have',
+      'what tabs', 'what workflows', 'what\'s loaded', 'analyze',
+      'tell me about', 'show me', 'what am i looking at'
+    ];
+    return contextKeywords.some(keyword => lowerInput.includes(keyword));
+  }
+
+  // Check if user wants to run tests
+  isTestRequest(input) {
+    const lowerInput = input.toLowerCase();
+    const testKeywords = [
+      'run test', 'test this', 'test the flow', 'execute test',
+      'check this workflow', 'validate this', 'try this flow'
+    ];
+    return testKeywords.some(keyword => lowerInput.includes(keyword));
+  }
+
+  // Analyze and describe current context
+  async analyzeCurrentContext(userInput) {
+    if (!this.workflowContext) {
+      return {
+        type: 'response',
+        content: "I don't have access to your current workflow context yet. Please make sure I'm connected to your workspace."
+      };
+    }
+
+    const analysis = this.generateContextAnalysis();
+    
+    return {
+      type: 'response',
+      content: analysis,
+      contextData: this.workflowContext
+    };
+  }
+
+  // Generate comprehensive context analysis
+  generateContextAnalysis() {
+    const ctx = this.workflowContext;
+    let analysis = "🔍 **Current Workspace Analysis:**\n\n";
+
+    // Overview
+    analysis += `📊 **Overview:**\n`;
+    analysis += `• Total workflows: ${ctx.workflows.length}\n`;
+    analysis += `• Active workflow: ${ctx.workflows.find(w => w.id === ctx.activeWorkflowId)?.name || 'None'}\n`;
+    analysis += `• Current nodes: ${ctx.currentNodes.length}\n\n`;
+
+    // Workflow breakdown
+    analysis += `📑 **Workflow Tabs:**\n`;
+    ctx.workflows.forEach((workflow, index) => {
+      const isActive = workflow.id === ctx.activeWorkflowId;
+      const status = isActive ? '🔸 (Active)' : '⚪';
+      analysis += `${status} **${workflow.name}**: ${workflow.nodeCount} nodes`;
+      
+      if (workflow.isImported) {
+        analysis += ` (Imported)`;
+      }
+      
+      if (workflow.hasConditions) {
+        const conditionCount = workflow.conditions.filter(c => c).length;
+        analysis += ` - ${conditionCount} conditions`;
+      }
+      
+      analysis += `\n`;
+    });
+
+    // Current workflow details
+    if (ctx.currentNodes.length > 0) {
+      analysis += `\n🎯 **Active Workflow Details:**\n`;
+      
+      const nodeTypes = ctx.currentNodes.reduce((acc, node) => {
+        acc[node.type] = (acc[node.type] || 0) + 1;
+        return acc;
+      }, {});
+      
+      Object.entries(nodeTypes).forEach(([type, count]) => {
+        const emoji = this.getNodeEmoji(type);
+        analysis += `${emoji} ${type}: ${count}\n`;
+      });
+
+      // Show conditions if any
+      const conditions = ctx.currentNodes.filter(n => n.type === 'condition' && n.condition);
+      if (conditions.length > 0) {
+        analysis += `\n🔍 **Conditions:**\n`;
+        conditions.forEach((node, index) => {
+          analysis += `${index + 1}. ${node.condition}\n`;
+        });
+      }
+
+      // Show inputs if any
+      const inputs = ctx.currentNodes.filter(n => n.type === 'input');
+      if (inputs.length > 0) {
+        analysis += `\n📝 **Input Variables:**\n`;
+        inputs.forEach(node => {
+          analysis += `• ${node.variable || 'variable'} = ${node.value || 'value'}\n`;
+        });
+      }
+    }
+
+    // Suggestions
+    analysis += `\n💡 **What I can help with:**\n`;
+    analysis += `• Create new flows: "Create a flow that checks if it's Tuesday at 9am"\n`;
+    analysis += `• Test workflows: "Run test on this flow"\n`;
+    analysis += `• Explain logic: "Explain how this condition works"\n`;
+    analysis += `• Generate complex flows with time/date conditions and queue operations\n`;
+
+    return analysis;
+  }
+
+  // Get emoji for node types
+  getNodeEmoji(nodeType) {
+    const emojis = {
+      start: '🚀',
+      end: '🏁',
+      condition: '❓',
+      input: '📝',
+      function: '⚙️'
+    };
+    return emojis[nodeType] || '🔹';
+  }
+
+  // Handle test requests
+  async handleTestRequest(userInput) {
+    if (!this.testingCallback) {
+      return {
+        type: 'response',
+        content: "🧪 I'd love to help you test this workflow, but I need to be connected to the testing system first. Please make sure the testing integration is enabled."
+      };
+    }
+
+    if (!this.workflowContext || this.workflowContext.currentNodes.length === 0) {
+      return {
+        type: 'response',
+        content: "🧪 I don't see any workflow to test. Please create or select a workflow first, then ask me to test it."
+      };
+    }
+
+    // Analyze what needs to be tested
+    const testAnalysis = this.analyzeTestRequirements();
+    
+    if (testAnalysis.needsConfiguration) {
+      return {
+        type: 'test_config',
+        content: `🧪 **Ready to test your workflow!**\n\n${testAnalysis.description}\n\n**Test Configuration Needed:**`,
+        testVariables: testAnalysis.variables,
+        onConfigured: 'run_test'
+      };
+    }
+
+    // Run the test directly if no configuration needed
+    return await this.executeTest();
+  }
+
+  // Analyze what's needed for testing
+  analyzeTestRequirements() {
+    const ctx = this.workflowContext;
+    const conditions = ctx.currentNodes.filter(n => n.type === 'condition' && n.condition);
+    const inputs = ctx.currentNodes.filter(n => n.type === 'input');
+    
+    let description = `I found ${conditions.length} condition(s) and ${inputs.length} input(s) in your workflow.`;
+    let needsConfiguration = false;
+    let variables = [];
+
+    // Analyze conditions for system variables
+    conditions.forEach(node => {
+      const condition = node.condition;
+      
+      // Check for system variables like ${...}
+      const systemVars = condition.match(/\$\{([^}]+)\}/g);
+      if (systemVars) {
+        systemVars.forEach(match => {
+          const varName = match.slice(2, -1);
+          variables.push({
+            name: varName,
+            type: 'system',
+            description: `System variable: ${match}`,
+            defaultValue: '1'
+          });
+          needsConfiguration = true;
+        });
+      }
+
+      // Check for session variables
+      const sessionVars = condition.match(/session\[['"]([^'"]+)['"]\]/g);
+      if (sessionVars) {
+        sessionVars.forEach(match => {
+          const key = match.match(/session\[['"]([^'"]+)['"]\]/)[1];
+          variables.push({
+            name: key,
+            type: 'session',
+            description: `Session variable: session['${key}']`,
+            defaultValue: 'test_value'
+          });
+          needsConfiguration = true;
+        });
+      }
+    });
+
+    // Add input variables
+    inputs.forEach(node => {
+      if (node.variable) {
+        variables.push({
+          name: node.variable,
+          type: 'input',
+          description: `Input variable: ${node.variable}`,
+          defaultValue: node.value || '10'
+        });
+      }
+    });
+
+    return {
+      description,
+      needsConfiguration,
+      variables: variables.filter((v, i, arr) => arr.findIndex(x => x.name === v.name) === i) // Remove duplicates
+    };
+  }
+
+  // Execute test with current configuration
+  async executeTest(testConfig = {}) {
+    try {
+      const results = await this.testingCallback(testConfig);
+      return this.interpretTestResults(results, testConfig);
+    } catch (error) {
+      return {
+        type: 'response',
+        content: `🚨 **Test execution failed:**\n\n${error.message}\n\nPlease check your workflow configuration and try again.`
+      };
+    }
+  }
+
+  // Interpret and explain test results
+  interpretTestResults(results, testConfig) {
+    let interpretation = "🧪 **Test Results Analysis:**\n\n";
+    
+    const successCount = results.filter(r => !r.message.includes('❌') && !r.message.includes('⚠️')).length;
+    const errorCount = results.filter(r => r.message.includes('❌')).length;
+    const warningCount = results.filter(r => r.message.includes('⚠️')).length;
+
+    // Summary
+    interpretation += `📊 **Summary:**\n`;
+    interpretation += `✅ Successful steps: ${successCount}\n`;
+    if (errorCount > 0) interpretation += `❌ Errors: ${errorCount}\n`;
+    if (warningCount > 0) interpretation += `⚠️ Warnings: ${warningCount}\n`;
+    interpretation += `\n`;
+
+    // Test configuration used
+    if (Object.keys(testConfig).length > 0) {
+      interpretation += `⚙️ **Test Configuration:**\n`;
+      Object.entries(testConfig).forEach(([key, value]) => {
+        interpretation += `• ${key} = ${value}\n`;
+      });
+      interpretation += `\n`;
+    }
+
+    // Detailed results
+    interpretation += `📋 **Execution Flow:**\n`;
+    results.forEach((result, index) => {
+      if (result.conditionDetails) {
+        const emoji = result.conditionDetails.result ? '✅' : '❌';
+        interpretation += `${index + 1}. ${emoji} **${result.nodeId}**: ${result.conditionDetails.original}\n`;
+        interpretation += `   → Evaluated to: ${result.conditionDetails.result ? 'TRUE' : 'FALSE'}\n`;
+      } else {
+        const emoji = result.message.includes('❌') ? '❌' : 
+                     result.message.includes('⚠️') ? '⚠️' : '✅';
+        interpretation += `${index + 1}. ${emoji} **${result.nodeId}**: ${result.message}\n`;
+      }
+    });
+
+    // Suggestions
+    interpretation += `\n💡 **Suggestions:**\n`;
+    if (errorCount > 0) {
+      interpretation += `• Fix the errors above to ensure proper workflow execution\n`;
+    }
+    if (warningCount > 0) {
+      interpretation += `• Review the warnings to improve workflow reliability\n`;
+    }
+    interpretation += `• Try different test values to verify all workflow paths\n`;
+    interpretation += `• Ask me to "create a flow" if you need help building new workflows\n`;
+
+    return {
+      type: 'response',
+      content: interpretation,
+      testResults: results,
+      testConfig: testConfig
     };
   }
 
@@ -334,6 +679,17 @@ class AIFlowAgent {
   generateFlowName(input, flowType) {
     const lowerInput = input.toLowerCase();
     
+    // Enhanced naming for complex time/date/queue scenarios
+    if (lowerInput.includes('tuesday') && lowerInput.includes('9am') && lowerInput.includes('queue')) {
+      return 'Tuesday 9AM Queue Routing';
+    }
+    if (lowerInput.includes('day') && lowerInput.includes('time') && lowerInput.includes('queue')) {
+      return 'Time-Based Queue Routing';
+    }
+    if (lowerInput.includes('queue') && (lowerInput.includes('abc') || lowerInput.includes('routing'))) {
+      return 'Queue Assignment Flow';
+    }
+    
     // Extract key concepts for naming
     if (lowerInput.includes('email')) return 'Email Validation Flow';
     if (lowerInput.includes('password')) return 'Password Strength Check';
@@ -347,6 +703,9 @@ class AIFlowAgent {
     
     // Fallback based on flow type
     switch (flowType) {
+      case 'time_queue_routing': return 'Time-Based Queue Routing';
+      case 'date_queue_routing': return 'Date-Based Queue Routing';
+      case 'queue_routing': return 'Queue Routing Flow';
       case 'validation': return 'Validation Flow';
       case 'calculation': return 'Calculation Flow';
       case 'decision': return 'Decision Flow';

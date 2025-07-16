@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import AIFlowAgent from '../services/aiAgent';
 
-const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
+const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowId, nodes, edges, onTestFlow }) => {
   const [messages, setMessages] = useState([
     {
       id: 1,
       type: 'ai',
-      content: "Hi! I'm your AI Flow Builder assistant. Describe the workflow you'd like to create, and I'll help you build it step by step.",
+      content: "Hi! I'm your enhanced AI Flow Builder assistant. I can now:\n\n• 🔍 **Analyze your workspace** - Ask me 'what's on screen' or 'describe my workflows'\n• 🧪 **Run tests** - Say 'test this flow' and I'll help configure and execute tests\n• 🚀 **Create complex flows** - Like 'create a flow that checks if it's Tuesday at 9am then set queue to ABC'\n\nWhat would you like to do?",
       timestamp: new Date()
     }
   ]);
@@ -26,9 +26,24 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
   });
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState(null);
+  const [pendingTestConfig, setPendingTestConfig] = useState(null);
 
   const [aiAgent, setAiAgent] = useState(() => new AIFlowAgent(config));
   const messagesEndRef = useRef(null);
+
+  // Update AI Agent with current workflow context
+  useEffect(() => {
+    if (aiAgent && workflows && nodes && edges) {
+      aiAgent.setWorkflowContext(workflows, activeWorkflowId, nodes, edges);
+    }
+  }, [aiAgent, workflows, activeWorkflowId, nodes, edges]);
+
+  // Set up testing callback for AI Agent
+  useEffect(() => {
+    if (aiAgent && onTestFlow) {
+      aiAgent.setTestingCallback(onTestFlow);
+    }
+  }, [aiAgent, onTestFlow]);
 
   // AI Provider configurations
   const AI_PROVIDERS = {
@@ -204,6 +219,17 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
         addMessage('ai', "I need some clarification to build the perfect flow for you:");
         setCurrentQuestions(response.questions);
         addMessage('ai', '', { questions: response.questions });
+      } else if (response.type === 'response') {
+        // Handle context analysis and general responses
+        addMessage('ai', response.content);
+      } else if (response.type === 'test_config') {
+        // Handle test configuration requests
+        addMessage('ai', response.content);
+        setPendingTestConfig(response.testVariables);
+        addMessage('ai', '', { 
+          testConfig: response.testVariables,
+          onConfigured: response.onConfigured 
+        });
       } else if (response.type === 'flow') {
         // Check if we're using fallback mode and show user-friendly message
         if (response.flowData && response.flowData.isUsingFallback) {
@@ -279,6 +305,125 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  // Handle test configuration and execution
+  const handleRunTestWithConfig = async (testConfig) => {
+    addMessage('user', `Running test with configuration: ${JSON.stringify(testConfig)}`);
+    setIsLoading(true);
+
+    try {
+      const response = await aiAgent.executeTest(testConfig);
+      addMessage('ai', response.content);
+    } catch (error) {
+      addMessage('ai', `🚨 Test execution failed: ${error.message}`);
+    }
+
+    setIsLoading(false);
+  };
+
+  // Test Configuration Panel Component
+  const TestConfigurationPanel = ({ testVariables, onConfigured, onRunTest }) => {
+    const [configValues, setConfigValues] = useState({});
+
+    // Initialize with default values
+    useEffect(() => {
+      const defaults = {};
+      testVariables.forEach(variable => {
+        defaults[variable.name] = variable.defaultValue;
+      });
+      setConfigValues(defaults);
+    }, [testVariables]);
+
+    const updateConfigValue = (name, value) => {
+      setConfigValues(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleRunTest = () => {
+      onRunTest(configValues);
+    };
+
+    return (
+      <div style={{
+        marginTop: '8px',
+        background: '#f0f8ff',
+        border: '1px solid #e1e5e9',
+        borderRadius: '8px',
+        padding: '12px'
+      }}>
+        <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#333' }}>
+          🧪 Test Configuration
+        </h4>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+          {testVariables.map(variable => (
+            <div key={variable.name} style={{
+              background: 'white',
+              border: '1px solid #e1e5e9',
+              borderRadius: '4px',
+              padding: '8px'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '4px'
+              }}>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#333' }}>
+                  {variable.name}
+                </span>
+                <span style={{
+                  fontSize: '10px',
+                  background: variable.type === 'system' ? '#e8f5e8' : 
+                            variable.type === 'session' ? '#fff3e0' : '#f3e5f5',
+                  color: variable.type === 'system' ? '#2e7d32' : 
+                         variable.type === 'session' ? '#f57c00' : '#7b1fa2',
+                  padding: '2px 4px',
+                  borderRadius: '8px'
+                }}>
+                  {variable.type}
+                </span>
+              </div>
+              
+              <p style={{ margin: '0 0 6px 0', fontSize: '10px', color: '#666' }}>
+                {variable.description}
+              </p>
+              
+              <input
+                type="text"
+                value={configValues[variable.name] || ''}
+                onChange={(e) => updateConfigValue(variable.name, e.target.value)}
+                placeholder={`Enter value for ${variable.name}`}
+                style={{
+                  width: '100%',
+                  padding: '4px 6px',
+                  border: '1px solid #ddd',
+                  borderRadius: '3px',
+                  fontSize: '11px'
+                }}
+              />
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={handleRunTest}
+          style={{
+            width: '100%',
+            padding: '8px 12px',
+            background: '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: 'bold'
+          }}
+        >
+          🚀 Run Test
+        </button>
+      </div>
+    );
   };
 
   const examplePrompts = [
@@ -629,6 +774,15 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig }) => {
                   </div>
                 ))}
               </div>
+            )}
+
+            {/* Render test configuration if present */}
+            {message.testConfig && (
+              <TestConfigurationPanel 
+                testVariables={message.testConfig}
+                onConfigured={message.onConfigured}
+                onRunTest={handleRunTestWithConfig}
+              />
             )}
           </div>
         ))}
