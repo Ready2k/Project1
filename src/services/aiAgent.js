@@ -796,15 +796,24 @@ class AIFlowAgent {
         userMessage = `🤖 API Error: ${error.message}. Using enhanced mock AI instead.`;
       }
       
-      // Fallback to enhanced mock implementation
-      const mockResult = this.parseIntentMock(input);
-      
-      // Add error info to the result so the UI can display it
-      return {
-        ...mockResult,
-        fallbackReason: userMessage,
-        isUsingFallback: true
-      };
+      // Check if mock fallback is enabled
+      if (this.config.enableMockFallback !== false) {
+        console.log('🤖 Using mock fallback (enabled in settings)');
+        
+        // Fallback to enhanced mock implementation
+        const mockResult = this.parseIntentMock(input);
+        
+        // Add clear fallback info to the result
+        return {
+          ...mockResult,
+          fallbackReason: `🤖 **Using Mock AI Fallback**\n\n${userMessage}\n\n✨ You can disable this fallback in AI Settings if you prefer to see error messages instead.`,
+          isUsingFallback: true
+        };
+      } else {
+        // Mock fallback is disabled, throw the original error
+        console.log('❌ Mock fallback disabled, throwing error');
+        throw new Error(`${this.config.provider} API failed: ${error.message}\n\nMock fallback is disabled in AI Settings. Enable it if you want automatic fallback to mock AI.`);
+      }
     }
   }
 

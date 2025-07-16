@@ -22,6 +22,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
     model: '',
     temperature: 0.3,
     maxTokens: 1000,
+    enableMockFallback: true, // New setting for mock fallback control
     ...aiConfig
   });
   const [isTestingConnection, setIsTestingConnection] = useState(false);
@@ -460,9 +461,23 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
       }}>
         <div>
           <h3 style={{ margin: 0, fontSize: '16px' }}>🤖 AI Flow Builder</h3>
-          <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.9 }}>
-            {AI_PROVIDERS[config.provider]?.name || 'AI Assistant'}
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0 0 0' }}>
+            <p style={{ margin: 0, fontSize: '12px', opacity: 0.9 }}>
+              {AI_PROVIDERS[config.provider]?.name || 'AI Assistant'}
+            </p>
+            {config.provider !== 'mock' && (
+              <span style={{
+                fontSize: '10px',
+                padding: '2px 6px',
+                borderRadius: '10px',
+                background: config.enableMockFallback ? 'rgba(255,255,255,0.2)' : 'rgba(255,193,7,0.3)',
+                color: config.enableMockFallback ? 'rgba(255,255,255,0.9)' : '#856404',
+                border: config.enableMockFallback ? '1px solid rgba(255,255,255,0.3)' : '1px solid #ffeaa7'
+              }}>
+                {config.enableMockFallback ? '🤖 Fallback: ON' : '⚠️ Fallback: OFF'}
+              </span>
+            )}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button
@@ -627,6 +642,49 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
                 />
               )}
             </div>
+
+            {/* Mock Fallback Toggle */}
+            {config.provider !== 'mock' && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px',
+                  fontSize: '12px', 
+                  fontWeight: 'bold', 
+                  color: '#333',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={config.enableMockFallback}
+                    onChange={(e) => setConfig(prev => ({ ...prev, enableMockFallback: e.target.checked }))}
+                    style={{ margin: 0 }}
+                  />
+                  Enable Mock Fallback
+                </label>
+                <p style={{ margin: '4px 0 0 20px', fontSize: '10px', color: '#666' }}>
+                  {config.enableMockFallback 
+                    ? '✅ Will use mock AI if real API fails (transparent fallback)'
+                    : '❌ Will show error if real API fails (no fallback)'
+                  }
+                </p>
+                <div style={{
+                  margin: '6px 0 0 20px',
+                  padding: '6px 8px',
+                  background: config.enableMockFallback ? '#e8f5e8' : '#fff3e0',
+                  border: `1px solid ${config.enableMockFallback ? '#c3e6cb' : '#ffeaa7'}`,
+                  borderRadius: '4px',
+                  fontSize: '10px',
+                  color: config.enableMockFallback ? '#155724' : '#856404'
+                }}>
+                  {config.enableMockFallback 
+                    ? '🤖 Mock responses will be clearly labeled when used'
+                    : '⚠️ You\'ll see clear error messages if API fails'
+                  }
+                </div>
+              </div>
+            )}
 
             {/* Test Connection & Save */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
