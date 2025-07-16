@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from 'reactflow';
 
 const ConditionNode = ({ data, id }) => {
-  const { deleteElements, getNodes } = useReactFlow();
+  const { deleteElements, getNodes, setNodes } = useReactFlow();
   const [condition, setCondition] = useState(data.condition || 'value > 0');
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingLabel, setIsEditingLabel] = useState(false);
@@ -37,7 +37,17 @@ const ConditionNode = ({ data, id }) => {
   const handleConditionChange = (e) => {
     const newCondition = e.target.value;
     setCondition(newCondition);
-    data.condition = newCondition;
+    
+    // Update the node data in ReactFlow state
+    setNodes((nodes) => 
+      nodes.map((node) => 
+        node.id === id 
+          ? { ...node, data: { ...node.data, condition: newCondition } }
+          : node
+      )
+    );
+    
+    console.log(`ConditionNode ${id}: Updated condition to "${newCondition}"`);
     
     // Validate and preview condition
     validateCondition(newCondition);
@@ -73,7 +83,17 @@ const ConditionNode = ({ data, id }) => {
 
   const selectTemplate = (template) => {
     setCondition(template.value);
-    data.condition = template.value;
+    
+    // Update the node data in ReactFlow state
+    setNodes((nodes) => 
+      nodes.map((node) => 
+        node.id === id 
+          ? { ...node, data: { ...node.data, condition: template.value } }
+          : node
+      )
+    );
+    
+    console.log(`ConditionNode ${id}: Updated condition via template to "${template.value}"`);
     setShowTemplates(false);
     validateCondition(template.value);
   };

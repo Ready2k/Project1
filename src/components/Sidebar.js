@@ -1,20 +1,12 @@
 import React, { useState } from 'react';
-import TestConfigurator from './TestConfigurator';
+import Testing from './Testing';
 
 const Sidebar = ({ nodes, edges, onTestFlow, testCases, onLoadTestCase }) => {
-  const [testResults, setTestResults] = useState(null);
   const [showTestCases, setShowTestCases] = useState(false);
-  const [testConfig, setTestConfig] = useState({});
-  const [showTestConfig, setShowTestConfig] = useState(false);
 
   const onDragStart = (event, nodeType) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     event.dataTransfer.effectAllowed = 'move';
-  };
-
-  const runTest = () => {
-    const results = onTestFlow(testConfig);
-    setTestResults(results);
   };
 
   return (
@@ -64,52 +56,12 @@ const Sidebar = ({ nodes, edges, onTestFlow, testCases, onLoadTestCase }) => {
       <div style={{ marginTop: '30px' }}>
         <h3>Actions</h3>
         
-        {/* Test Configuration Button */}
-        <button 
-          onClick={() => setShowTestConfig(!showTestConfig)}
-          style={{
-            width: '100%',
-            padding: '8px',
-            background: '#6f42c1',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '12px',
-            marginBottom: '8px'
-          }}
-        >
-          ⚙️ Test Config {showTestConfig ? '▼' : '▶'}
-        </button>
-
-        {/* Test Configuration Panel */}
-        {showTestConfig && (
-          <div style={{ marginBottom: '10px' }}>
-            <TestConfigurator 
-              nodes={nodes}
-              onConfigChange={setTestConfig}
-              currentConfig={testConfig}
-            />
-          </div>
-        )}
-
-        {/* Test Flow Button */}
-        <button 
-          onClick={runTest}
-          style={{
-            width: '100%',
-            padding: '10px',
-            background: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            marginBottom: '10px'
-          }}
-        >
-          🧪 Run Test
-        </button>
+        {/* Unified Testing Component */}
+        <Testing 
+          nodes={nodes}
+          edges={edges}
+          onTestFlow={onTestFlow}
+        />
 
         {/* Showcase Examples Button */}
         <button 
@@ -141,7 +93,6 @@ const Sidebar = ({ nodes, edges, onTestFlow, testCases, onLoadTestCase }) => {
                 { id: 'e1-2', source: '1', target: '2' }
               ] 
             });
-            setTestResults(null);
           }}
           style={{
             width: '100%',
@@ -173,7 +124,6 @@ const Sidebar = ({ nodes, edges, onTestFlow, testCases, onLoadTestCase }) => {
                 key={index}
                 onClick={() => {
                   onLoadTestCase(testCase);
-                  setTestResults(null);
                   setShowTestCases(false);
                 }}
                 style={{
@@ -196,62 +146,7 @@ const Sidebar = ({ nodes, edges, onTestFlow, testCases, onLoadTestCase }) => {
           </div>
         )}
         
-        {testResults && (
-          <div style={{ marginTop: '15px' }}>
-            <h4 style={{ fontSize: '14px', margin: '0 0 10px 0' }}>Results:</h4>
-            <div style={{
-              background: '#f8f9fa',
-              padding: '10px',
-              borderRadius: '4px',
-              fontSize: '12px',
-              maxHeight: '200px',
-              overflowY: 'auto'
-            }}>
-              {testResults.map((result, index) => (
-                <div key={index} style={{ 
-                  marginBottom: '8px',
-                  padding: '6px',
-                  borderRadius: '4px',
-                  background: result.message.includes('❌') ? 'rgba(220, 53, 69, 0.1)' :
-                             result.message.includes('⚠️') ? 'rgba(255, 193, 7, 0.1)' :
-                             'rgba(248, 249, 250, 0.5)'
-                }}>
-                  <strong>{result.nodeId}:</strong> {result.message}
-                  
-                  {result.conditionDetails && (
-                    <div style={{ marginLeft: '10px', fontSize: '10px', color: '#666' }}>
-                      <div>Original: <code>{result.conditionDetails.original}</code></div>
-                      <div>Evaluated: <code>{result.conditionDetails.evaluated}</code></div>
-                      <div>Result: <strong style={{ color: result.conditionDetails.result ? '#28a745' : '#dc3545' }}>
-                        {result.conditionDetails.result ? 'TRUE' : 'FALSE'}
-                      </strong></div>
-                    </div>
-                  )}
-                  
-                  {result.suggestion && (
-                    <div style={{ 
-                      marginLeft: '10px', 
-                      fontSize: '10px', 
-                      color: '#856404',
-                      background: 'rgba(255, 193, 7, 0.1)',
-                      padding: '4px',
-                      borderRadius: '2px',
-                      marginTop: '4px'
-                    }}>
-                      💡 {result.suggestion}
-                    </div>
-                  )}
-                  
-                  {result.variables && Object.keys(result.variables).length > 0 && (
-                    <div style={{ marginLeft: '10px', color: '#666', fontSize: '10px' }}>
-                      Variables: {JSON.stringify(result.variables, null, 1)}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
       </div>
     </div>
   );

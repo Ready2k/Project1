@@ -730,49 +730,151 @@ function App() {
     // Helper function to evaluate conditions with test configuration
     const evaluateConditionWithTestConfig = (condition, testConfig, variables) => {
         try {
-            // Create mock objects based on test configuration
-            const mockObjects = createMockObjects(testConfig);
+            console.log('Evaluating condition:', condition);
+            console.log('Test config:', testConfig);
             
-            // Create evaluation context with variables and mock objects
-            const evalContext = { ...variables, ...mockObjects };
-            
-            // Replace variables in condition
             let evaluatedCondition = condition;
             
-            // Replace simple variables
-            Object.keys(variables).forEach(varName => {
-                const regex = new RegExp(`\\b${varName}\\b`, 'g');
-                const value = variables[varName];
-                const replacement = typeof value === 'string' ? `"${value}"` : value;
-                evaluatedCondition = evaluatedCondition.replace(regex, replacement);
-            });
-            
-            // Handle object method calls with test config values
-            Object.keys(testConfig).forEach(configKey => {
-                if (configKey.includes('.')) {
-                    const [objectName, methodName] = configKey.split('.');
-                    const configValue = testConfig[configKey];
-                    const methodPattern = new RegExp(`${objectName}\\.${methodName}\\([^)]*\\)`, 'g');
-                    evaluatedCondition = evaluatedCondition.replace(methodPattern, configValue);
-                }
-            });
-            
-            // Handle session object access
-            if (condition.includes("session['") || condition.includes('session["')) {
-                const sessionMatches = condition.match(/session\[['"]([^'"]+)['"]\]/g);
-                if (sessionMatches) {
-                    sessionMatches.forEach(match => {
-                        const key = match.match(/session\[['"]([^'"]+)['"]\]/)[1];
-                        const configValue = testConfig[`session.${key}`] || `"${key}_value"`;
-                        evaluatedCondition = evaluatedCondition.replace(match, configValue);
-                    });
-                }
+            // STEP 1: Replace system variables ${...} with test config values
+            // Handle both quoted and unquoted system variables
+            const quotedSystemVarMatches = condition.match(/'?\$\{([^}]+)\}'?/g);
+            if (quotedSystemVarMatches) {
+                quotedSystemVarMatches.forEach(match => {
+                    // Extract variable name from ${...}
+                    const variableMatch = match.match(/\$\{([^}]+)\}/);
+                    if (variableMatch) {
+                        const variableName = variableMatch[1];
+                        const configValue = testConfig[variableName];
+                        if (configValue !== undefined) {
+                            // Replace the entire match (including quotes if present) with the configured value
+                            const replacement = typeof configValue === 'string' ? `'${configValue}'` : configValue;
+                            evaluatedCondition = evaluatedCondition.replace(match, replacement);
+                            console.log(`Replaced ${match} with ${replacement}`);
+                        }
+                    }
+                });
             }
             
-            // eslint-disable-next-line no-eval
-            return eval(evaluatedCondition);
+            // STEP 2: Replace session variables with test config values
+            const sessionMatches = condition.match(/session\[['"]([^'"]+)['"]\]/g);
+            if (sessionMatches) {
+                sessionMatches.forEach(match => {
+                    const key = match.match(/session\[['"]([^'"]+)['"]\]/)[1];
+                    const configValue = testConfig[key];
+                    if (configValue !== undefined) {
+                        const replacement = typeof configValue === 'string' ? `'${configValue}'` : configValue;
+                        evaluatedCondition = evaluatedCondition.replace(match, replacement);
+                        console.log(`Replaced session['${key}'] with ${replacement}`);
+                    }
+                });
+            }
+            
+            // STEP 3: Replace simple variables from Input nodes AND test config
+            const allVariables = { ...variables, ...testConfig };
+            Object.keys(allVariables).forEach(varName => {
+                // Skip system variables (they have slashes) as they're handled in STEP 1
+                if (!varName.includes('/')) {
+                    const regex = new RegExp(`\\b${varName}\\b`, 'g');
+                    const value = allVariables[varName];
+                    const replacement = typeof value === 'string' ? `"${value}"` : value;
+                    evaluatedCondition = evaluatedCondition.replace(regex, replacement);
+                    console.log(`Replaced variable ${varName} with ${replacement}`);
+                }
+            });
+            
+            // STEP 4: Create mock functions for object methods like queue.AgentStaffed()
+            // This handles cases where we have queue.AgentStaffed('1') after system variable replacement
+            const mockFunctions = {
+                queue: {
+                    AgentStaffed: (queueName) => {
+                        // Convert queueName to number if it's a numeric string
+                        const numericValue = parseInt(queueName, 10);
+                        const result = isNaN(numericValue) ? 2 : numericValue; // Use the actual value or default to 2
+                        console.log(`Mock queue.AgentStaffed(${queueName}) called, returning: ${result}`);
+                        return result;
+                    },
+                    QueueDepth: (queueName) => {
+                        const numericValue = parseInt(queueName, 10);
+                        const result = isNaN(numericValue) ? 5 : numericValue;
+                        console.log(`Mock queue.QueueDepth(${queueName}) called, returning: ${result}`);
+                        return result;
+                    },
+                    LongestWaitTime: (queueName) => {
+                        const numericValue = parseInt(queueName, 10);
+                        const result = isNaN(numericValue) ? 15 : numericValue;
+                        console.log(`Mock queue.LongestWaitTime(${queueName}) called, returning: ${result}`);
+                        return result;
+                    }
+                },
+                date: {
+                    After: (dateStr) => {
+                        const testDate = new Date(dateStr);
+                        const now = new Date();
+                        return now > testDate;
+                    },
+                    Before: (dateStr) => {
+                        const testDate = new Date(dateStr);
+                        const now = new Date();
+                        return now < testDate;
+                    },
+                    Equals: (dateStr) => {
+                        const testDate = new Date(dateStr).toDateString();
+                        const now = new Date().toDateString();
+                        return now === testDate;
+                    }
+                },
+                now: {
+                    After: (timeStr) => {
+                        const now = new Date();
+                        const currentTime = now.getHours() * 100 + now.getMinutes();
+                        const testTime = parseInt(timeStr.replace(':', ''));
+                        return currentTime > testTime;
+                    },
+                    Before: (timeStr) => {
+                        const now = new Date();
+                        const currentTime = now.getHours() * 100 + now.getMinutes();
+                        const testTime = parseInt(timeStr.replace(':', ''));
+                        return currentTime < testTime;
+                    }
+                },
+                today: {
+                    Equals: (...days) => {
+                        const today = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][new Date().getDay()];
+                        return days.includes(today);
+                    }
+                }
+            };
+            
+            console.log('Final condition to evaluate:', evaluatedCondition);
+            
+            // STEP 5: Create evaluation context with mock functions
+            const evalContext = {
+                queue: mockFunctions.queue,
+                date: mockFunctions.date,
+                now: mockFunctions.now,
+                today: mockFunctions.today
+            };
+            
+            // Create a function that evaluates the condition with the mock context
+            // eslint-disable-next-line no-new-func
+            const evalFunction = new Function(
+                'queue', 'date', 'now', 'today',
+                `return ${evaluatedCondition};`
+            );
+            
+            const result = evalFunction(
+                evalContext.queue,
+                evalContext.date,
+                evalContext.now,
+                evalContext.today
+            );
+            
+            console.log('Evaluation result:', result);
+            return result;
         } catch (error) {
             console.warn('Error evaluating condition:', error);
+            console.warn('Condition was:', condition);
+            console.warn('Evaluated condition was:', evaluatedCondition);
             return false;
         }
     };
@@ -781,34 +883,42 @@ function App() {
     const createDisplayCondition = (condition, testConfig, variables) => {
         let displayCondition = condition;
         
-        // Replace variables with their values
+        // Replace system variables with their configured values (clean replacement)
+        const quotedSystemVarMatches = condition.match(/'?\$\{([^}]+)\}'?/g);
+        if (quotedSystemVarMatches) {
+            quotedSystemVarMatches.forEach(match => {
+                // Extract variable name from ${...}
+                const variableMatch = match.match(/\$\{([^}]+)\}/);
+                if (variableMatch) {
+                    const variableName = variableMatch[1];
+                    const configValue = testConfig[variableName];
+                    if (configValue !== undefined) {
+                        // Replace the entire match with clean value
+                        const replacement = typeof configValue === 'string' ? `'${configValue}'` : configValue;
+                        displayCondition = displayCondition.replace(match, replacement);
+                    }
+                }
+            });
+        }
+        
+        // Replace session variables with their configured values
+        const sessionMatches = condition.match(/session\[['"]([^'"]+)['"]\]/g);
+        if (sessionMatches) {
+            sessionMatches.forEach(match => {
+                const key = match.match(/session\[['"]([^'"]+)['"]\]/)[1];
+                const configValue = testConfig[key];
+                if (configValue !== undefined) {
+                    displayCondition = displayCondition.replace(match, `session['${key}']→'${configValue}'`);
+                }
+            });
+        }
+        
+        // Replace simple variables with their values
         Object.keys(variables).forEach(varName => {
             const regex = new RegExp(`\\b${varName}\\b`, 'g');
             const value = variables[varName];
             displayCondition = displayCondition.replace(regex, `${varName}=${value}`);
         });
-        
-        // Replace object method calls with configured values
-        Object.keys(testConfig).forEach(configKey => {
-            if (configKey.includes('.')) {
-                const [objectName, methodName] = configKey.split('.');
-                const configValue = testConfig[configKey];
-                const methodPattern = new RegExp(`${objectName}\\.${methodName}\\([^)]*\\)`, 'g');
-                displayCondition = displayCondition.replace(methodPattern, `${objectName}.${methodName}()=${configValue}`);
-            }
-        });
-        
-        // Handle session object access
-        if (condition.includes("session['") || condition.includes('session["')) {
-            const sessionMatches = condition.match(/session\[['"]([^'"]+)['"]\]/g);
-            if (sessionMatches) {
-                sessionMatches.forEach(match => {
-                    const key = match.match(/session\[['"]([^'"]+)['"]\]/)[1];
-                    const configValue = testConfig[`session.${key}`] || `"${key}_value"`;
-                    displayCondition = displayCondition.replace(match, `session['${key}']=${configValue}`);
-                });
-            }
-        }
         
         return displayCondition;
     };
@@ -888,14 +998,14 @@ function App() {
         }
     }, [nodes, edges]);
 
-    const testFlowWithAnimation = useCallback(() => {
+    const testFlowWithAnimation = useCallback((testConfig = {}) => {
         // Check validation before running
         if (validation && !validation.isValid) {
             alert('Cannot run test: Flow has validation errors. Please fix them first.');
             return [];
         }
 
-        const results = testFlow();
+        const results = testFlow(testConfig);
         const pathTrace = results.filter(r => r.position).map((r, index) => ({
             nodeId: r.nodeId,
             timestamp: Date.now() + (index * 800),
