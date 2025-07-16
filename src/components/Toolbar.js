@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 
-const Toolbar = ({ nodes, edges, onLoadFlow, onImportWorkflows, currentFlowInfo, validation, showValidation, setShowValidation, onShowAIChat, onShowAISettings }) => {
+const Toolbar = ({ nodes, edges, onLoadFlow, onImportWorkflows, currentFlowInfo, validation, showValidation, setShowValidation, onShowAIChat }) => {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [flowName, setFlowName] = useState('');
   const fileInputRef = useRef(null);
@@ -242,35 +242,7 @@ const Toolbar = ({ nodes, edges, onLoadFlow, onImportWorkflows, currentFlowInfo,
           📥 Import Workflows
         </button>
 
-        {/* AI Settings Button */}
-        <button
-          onClick={onShowAISettings}
-          style={{
-            background: 'rgba(255,255,255,0.2)',
-            border: '1px solid rgba(255,255,255,0.3)',
-            color: 'white',
-            padding: '6px 10px',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            transition: 'all 0.2s',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.background = 'rgba(255,255,255,0.3)';
-            e.target.style.transform = 'translateY(-1px)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.background = 'rgba(255,255,255,0.2)';
-            e.target.style.transform = 'translateY(0)';
-          }}
-          title="Configure AI Provider"
-        >
-          ⚙️ AI
-        </button>
+
 
         {/* AI Chat Button */}
         <button

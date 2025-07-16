@@ -18,7 +18,7 @@ import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import ValidationPanel from './components/ValidationPanel';
 import AIChat from './components/AIChat';
-import AISettings from './components/AISettings';
+
 import { validateFlow, detectOverlappingNodes } from './utils/validation';
 import './App.css';
 
@@ -544,7 +544,6 @@ function App() {
     const [showValidation, setShowValidation] = useState(false);
 
     const [showAIChat, setShowAIChat] = useState(false);
-    const [showAISettings, setShowAISettings] = useState(false);
     const [aiConfig, setAiConfig] = useState(null);
     // eslint-disable-next-line no-unused-vars
     const [highlightedNode, setHighlightedNode] = useState(null);
@@ -1028,7 +1027,6 @@ function App() {
                 showValidation={showValidation}
                 setShowValidation={setShowValidation}
                 onShowAIChat={() => setShowAIChat(true)}
-                onShowAISettings={() => setShowAISettings(true)}
             />
 
             {/* Workflow Tabs - Always show */}
@@ -1262,16 +1260,7 @@ function App() {
                 </div>
             </div>
 
-            {/* AI Settings Modal */}
-            {showAISettings && (
-                <AISettings
-                    onClose={() => setShowAISettings(false)}
-                    onSave={(config) => {
-                        setAiConfig(config);
-                        setShowAISettings(false);
-                    }}
-                />
-            )}
+
 
             {/* AI Chat Panel */}
             {showAIChat && (
