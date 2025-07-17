@@ -11,8 +11,10 @@ A powerful visual workflow creation tool built with React and ReactFlow. Create,
 - **🔗 Perfect Node Connections**: AI automatically creates properly connected sequential condition flows
 - **📤 Smart Export Integration**: AI-generated flows include export-ready JSON format with copy functionality
 - **🎯 Time-Based Flow Recognition**: Specialized handling for date/time conditions like "Tuesday before 9am"
-- **⚙️ Multiple AI Providers**: Support for OpenAI, Claude, Ollama, Azure OpenAI, AWS Bedrock, and custom APIs
-- **🔄 Mock Fallback System**: Enhanced mock AI when external providers are unavailable
+- **⚙️ Multiple AI Providers**: Support for OpenAI, Claude, Ollama, Azure OpenAI, AWS Bedrock, DeepSeek, and custom APIs
+- **🔄 Intelligent Mock Fallback**: Enhanced mock AI with pattern recognition when external providers fail
+- **🧠 Context Analysis**: AI can analyze current workspace and describe workflows
+- **🧪 Testing Integration**: AI-powered test configuration and execution assistance
 
 ### 📤 Advanced Export/Import System
 - **📋 Export Workflow Dialog**: Professional export interface with filename customization

@@ -233,6 +233,7 @@ function App() {
             console.error('Import error:', error);
             alert(`Failed to import workflows: ${error.message}`);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [setNodes, setEdges]);
 
 
@@ -544,7 +545,7 @@ function App() {
     const [showValidation, setShowValidation] = useState(false);
 
     const [showAIChat, setShowAIChat] = useState(false);
-    const [aiConfig, setAiConfig] = useState(null);
+    const [aiConfig] = useState(null);
     // eslint-disable-next-line no-unused-vars
     const [highlightedNode, setHighlightedNode] = useState(null);
 
@@ -924,6 +925,7 @@ function App() {
     };
 
     // Helper function to create mock objects for evaluation
+    // eslint-disable-next-line no-unused-vars
     const createMockObjects = (testConfig) => {
         const mocks = {};
         

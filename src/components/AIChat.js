@@ -27,6 +27,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
   });
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [pendingTestConfig, setPendingTestConfig] = useState(null);
 
   const [aiAgent, setAiAgent] = useState(() => new AIFlowAgent(config));
@@ -35,7 +36,23 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
   // Update AI Agent with current workflow context
   useEffect(() => {
     if (aiAgent && workflows && nodes && edges) {
+      console.log('🔍 AIChat: Updating workflow context', {
+        workflowCount: workflows.length,
+        activeId: activeWorkflowId,
+        nodeCount: nodes.length,
+        edgeCount: edges.length
+      });
       aiAgent.setWorkflowContext(workflows, activeWorkflowId, nodes, edges);
+    } else {
+      console.warn('🔍 AIChat: Cannot update workflow context - missing data', {
+        hasAgent: !!aiAgent,
+        hasWorkflows: !!workflows,
+        workflowCount: workflows?.length || 0,
+        hasNodes: !!nodes,
+        nodeCount: nodes?.length || 0,
+        hasEdges: !!edges,
+        edgeCount: edges?.length || 0
+      });
     }
   }, [aiAgent, workflows, activeWorkflowId, nodes, edges]);
 
@@ -125,7 +142,16 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
     if (savedConfig) {
       const parsed = JSON.parse(savedConfig);
       setConfig(prev => ({ ...prev, ...parsed }));
-      setAiAgent(new AIFlowAgent({ ...config, ...parsed }));
+      // Create a new agent with the merged config, but don't use config in the dependency array
+      setAiAgent(new AIFlowAgent({ 
+        provider: parsed.provider || 'mock',
+        apiKey: parsed.apiKey || '',
+        endpoint: parsed.endpoint || '',
+        model: parsed.model || '',
+        temperature: parsed.temperature || 0.3,
+        maxTokens: parsed.maxTokens || 1000,
+        enableMockFallback: parsed.enableMockFallback !== false
+      }));
     }
   }, []);
 
@@ -195,7 +221,7 @@ const AIChat = ({ onFlowGenerated, onClose, aiConfig, workflows, activeWorkflowI
 
   const addMessage = (type, content, extra = {}) => {
     const newMessage = {
-      id: Date.now(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type,
       content,
       timestamp: new Date(),
