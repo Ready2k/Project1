@@ -1363,7 +1363,6 @@ function App() {
                 <Sidebar
                     nodes={nodes}
                     edges={edges}
-                    onTestFlow={testFlowWithAnimation}
                     testCases={testCases}
                     onLoadTestCase={loadTestCase}
                 />

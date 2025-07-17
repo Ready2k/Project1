@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 const Toolbar = ({ nodes, edges, onLoadFlow, onImportWorkflows, onTestFlow, currentFlowInfo, validation, showValidation, setShowValidation, onShowAIChat, workflows, activeWorkflowId }) => {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showTestPanel, setShowTestPanel] = useState(false);
   const [flowName, setFlowName] = useState('');
   const [exportFileName, setExportFileName] = useState('');
   const [exportScope, setExportScope] = useState('current'); // 'current' or 'all'
@@ -421,16 +422,9 @@ const Toolbar = ({ nodes, edges, onLoadFlow, onImportWorkflows, onTestFlow, curr
 
 
 
-        {/* Test Flow Button */}
+        {/* Test Panel Button */}
         <button
-          onClick={() => {
-            // Simple test execution - we'll enhance this to work with the sidebar's test config
-            if (typeof onTestFlow === 'function') {
-              onTestFlow({});
-            } else {
-              console.warn('Test function not available');
-            }
-          }}
+          onClick={() => setShowTestPanel(!showTestPanel)}
           style={{
             background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
             border: '1px solid rgba(255,255,255,0.3)',
@@ -454,9 +448,9 @@ const Toolbar = ({ nodes, edges, onLoadFlow, onImportWorkflows, onTestFlow, curr
             e.target.style.transform = 'translateY(0)';
             e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
           }}
-          title="Run test on current workflow"
+          title="Configure and run tests"
         >
-          🧪 Run Test
+          🧪 Test {showTestPanel ? '▼' : '▶'}
         </button>
 
         {/* AI Chat Button */}
@@ -891,6 +885,391 @@ const Toolbar = ({ nodes, edges, onLoadFlow, onImportWorkflows, onTestFlow, curr
           </div>
         </div>
       )}
+
+      {/* Test Panel Modal */}
+      {showTestPanel && (
+        <TestPanel 
+          nodes={nodes}
+          edges={edges}
+          onTestFlow={onTestFlow}
+          onClose={() => setShowTestPanel(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+// Test Panel Component - Complete testing functionality in toolbar
+const TestPanel = ({ nodes, edges, onTestFlow, onClose }) => {
+  const [testResults, setTestResults] = useState(null);
+  const [testConfig, setTestConfig] = useState({});
+  const [detectedVariables, setDetectedVariables] = useState([]);
+
+  // Analyze nodes to detect system variables and session variables used in conditions
+  useEffect(() => {
+    console.log('Test Panel analyzing nodes:', nodes.length);
+    const systemVariables = new Set();
+    const sessionVariables = new Set();
+    const simpleVariables = new Set();
+
+    nodes.forEach(node => {
+      if (node.type === 'condition' && node.data.condition) {
+        const condition = node.data.condition;
+        console.log('Analyzing condition:', condition);
+
+        // Extract system variables like ${QueueNameToARN/BI_ISS_CustServe}
+        const systemVarMatches = condition.match(/\$\{([^}]+)\}/g);
+        if (systemVarMatches) {
+          systemVarMatches.forEach(match => {
+            const variableName = match.slice(2, -1); // Remove ${ and }
+            systemVariables.add(variableName);
+          });
+        }
+
+        // Extract session variables like session['OECachedServiceIdentifier']
+        const sessionMatches = condition.match(/session\[['"]([^'"]+)['"]\]/g);
+        if (sessionMatches) {
+          sessionMatches.forEach(match => {
+            const sessionKey = match.match(/session\[['"]([^'"]+)['"]\]/)[1];
+            sessionVariables.add(sessionKey);
+          });
+        }
+
+        // Extract simple variables
+        const variableMatches = condition.match(/\b(\w+)\b/g);
+        if (variableMatches) {
+          variableMatches.forEach(variable => {
+            const skipWords = ['true', 'false', 'null', 'undefined', 'return', 'function', 'var', 'let', 'const', 
+                             'queue', 'date', 'now', 'today', 'session', 'After', 'Before', 'Equals', 'AgentStaffed', 
+                             'QueueDepth', 'LongestWaitTime'];
+            if (!skipWords.includes(variable) && !variable.match(/^\d+$/)) {
+              simpleVariables.add(variable);
+            }
+          });
+        }
+      }
+    });
+
+    // Convert to array and create configuration structure
+    const detected = [
+      ...Array.from(systemVariables).map(variable => ({
+        name: variable,
+        type: 'system',
+        dataType: guessDataType(variable),
+        description: `System variable: \${${variable}}`
+      })),
+      ...Array.from(sessionVariables).map(variable => ({
+        name: variable,
+        type: 'session',
+        dataType: 'string',
+        description: `Session variable: session['${variable}']`
+      })),
+      ...Array.from(simpleVariables).map(variable => ({
+        name: variable,
+        type: 'variable',
+        dataType: guessDataType(variable),
+        description: `Variable: ${variable}`
+      }))
+    ];
+
+    setDetectedVariables(detected);
+    
+    // Auto-populate default values
+    if (detected.length > 0) {
+      const defaultConfig = {};
+      detected.forEach(variable => {
+        if (variable.type === 'system') {
+          defaultConfig[variable.name] = '1';
+        } else if (variable.type === 'session') {
+          defaultConfig[variable.name] = 'test_value';
+        }
+      });
+      
+      if (Object.keys(defaultConfig).length > 0) {
+        setTestConfig(defaultConfig);
+      }
+    }
+  }, [nodes]);
+
+  // Guess data type based on variable name
+  const guessDataType = (variable) => {
+    const name = variable.toLowerCase();
+    if (name.includes('date') || name.includes('time')) return 'date';
+    if (name.includes('count') || name.includes('number') || name.includes('age')) return 'number';
+    if (name.includes('email')) return 'email';
+    if (name.includes('phone')) return 'phone';
+    if (name.includes('url')) return 'url';
+    return 'string';
+  };
+
+  // Update test configuration
+  const updateTestConfig = (key, value) => {
+    const newConfig = { ...testConfig, [key]: value };
+    setTestConfig(newConfig);
+  };
+
+  // Run test with current configuration
+  const runTest = () => {
+    console.log('Running test with config:', testConfig);
+    const results = onTestFlow(testConfig);
+    setTestResults(results);
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10000
+    }}>
+      <div style={{
+        background: 'white',
+        padding: '30px',
+        borderRadius: '12px',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+        minWidth: '600px',
+        maxWidth: '800px',
+        maxHeight: '80vh',
+        overflowY: 'auto'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          marginBottom: '20px'
+        }}>
+          <h3 style={{ margin: 0, color: '#333', fontSize: '18px' }}>
+            🧪 Test Configuration & Execution
+          </h3>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '20px',
+              cursor: 'pointer',
+              color: '#666'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Configuration Section */}
+        {detectedVariables.length > 0 ? (
+          <div style={{ marginBottom: '20px' }}>
+            <h4 style={{ 
+              margin: '0 0 12px 0', 
+              fontSize: '14px', 
+              color: '#333',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              ⚙️ Test Configuration
+              <span style={{ fontSize: '12px', color: '#666', fontWeight: 'normal' }}>
+                ({detectedVariables.length} variables detected)
+              </span>
+            </h4>
+            
+            <div style={{ 
+              display: 'grid', 
+              gap: '12px', 
+              marginBottom: '20px',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))'
+            }}>
+              {detectedVariables.map(variable => (
+                <div key={variable.name} style={{
+                  background: '#f8f9fa',
+                  border: '1px solid #e1e5e9',
+                  borderRadius: '6px',
+                  padding: '12px'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '8px'
+                  }}>
+                    <div>
+                      <span style={{
+                        fontSize: '13px',
+                        fontWeight: 'bold',
+                        color: '#333'
+                      }}>
+                        {variable.name}
+                      </span>
+                      {variable.description && (
+                        <div style={{
+                          fontSize: '11px',
+                          color: '#666',
+                          marginTop: '2px'
+                        }}>
+                          {variable.description}
+                        </div>
+                      )}
+                    </div>
+                    <span style={{
+                      fontSize: '10px',
+                      background: variable.type === 'system' ? '#e8f5e8' : 
+                                variable.type === 'session' ? '#fff3e0' : '#f3e5f5',
+                      color: variable.type === 'system' ? '#2e7d32' : 
+                             variable.type === 'session' ? '#f57c00' : '#7b1fa2',
+                      padding: '3px 6px',
+                      borderRadius: '10px',
+                      fontWeight: 'bold'
+                    }}>
+                      {variable.type}
+                    </span>
+                  </div>
+                  
+                  <input
+                    type={variable.dataType === 'number' ? 'number' :
+                        variable.dataType === 'date' ? 'date' :
+                            variable.dataType === 'email' ? 'email' : 'text'}
+                    value={testConfig[variable.name] || ''}
+                    onChange={(e) => updateTestConfig(variable.name, e.target.value)}
+                    placeholder={`Enter ${variable.dataType} value`}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            padding: '16px',
+            background: '#fff3cd',
+            border: '1px solid #ffeaa7',
+            borderRadius: '6px',
+            fontSize: '13px',
+            color: '#856404',
+            marginBottom: '20px',
+            textAlign: 'center'
+          }}>
+            No test variables detected in this workflow
+            <div style={{ fontSize: '11px', marginTop: '4px', color: '#999' }}>
+              Analyzed {nodes.length} nodes
+            </div>
+          </div>
+        )}
+
+        {/* Test Execution Button */}
+        <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+          <button 
+            onClick={runTest}
+            style={{
+              padding: '12px 24px',
+              background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+          >
+            🚀 Run Test
+          </button>
+        </div>
+
+        {/* Test Results */}
+        {testResults && (
+          <div>
+            <h4 style={{ fontSize: '14px', margin: '0 0 12px 0', color: '#333' }}>
+              📊 Test Results & Workings:
+            </h4>
+            <div style={{
+              background: '#f8f9fa',
+              padding: '16px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              maxHeight: '300px',
+              overflowY: 'auto',
+              border: '1px solid #e1e5e9'
+            }}>
+              {testResults.map((result, index) => (
+                <div key={index} style={{ 
+                  marginBottom: '12px',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  background: result.message.includes('❌') ? 'rgba(220, 53, 69, 0.1)' :
+                             result.message.includes('⚠️') ? 'rgba(255, 193, 7, 0.1)' :
+                             'rgba(248, 249, 250, 0.8)',
+                  border: '1px solid ' + (result.message.includes('❌') ? 'rgba(220, 53, 69, 0.2)' :
+                                         result.message.includes('⚠️') ? 'rgba(255, 193, 7, 0.2)' :
+                                         'rgba(0, 0, 0, 0.1)')
+                }}>
+                  <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                    <strong>{result.nodeId}:</strong> {result.message}
+                  </div>
+                  
+                  {result.conditionDetails && (
+                    <div style={{ 
+                      marginLeft: '12px', 
+                      fontSize: '11px', 
+                      color: '#666',
+                      background: 'rgba(255, 255, 255, 0.7)',
+                      padding: '6px',
+                      borderRadius: '3px',
+                      marginTop: '6px'
+                    }}>
+                      <div><strong>Original:</strong> <code style={{ fontSize: '10px', background: '#e9ecef', padding: '1px 3px', borderRadius: '2px' }}>{result.conditionDetails.original}</code></div>
+                      <div><strong>Evaluated:</strong> <code style={{ fontSize: '10px', background: '#e9ecef', padding: '1px 3px', borderRadius: '2px' }}>{result.conditionDetails.evaluated}</code></div>
+                      <div><strong>Result:</strong> <span style={{ 
+                        color: result.conditionDetails.result ? '#28a745' : '#dc3545',
+                        fontWeight: 'bold'
+                      }}>
+                        {result.conditionDetails.result ? 'TRUE' : 'FALSE'}
+                      </span></div>
+                    </div>
+                  )}
+                  
+                  {result.suggestion && (
+                    <div style={{ 
+                      marginLeft: '12px', 
+                      fontSize: '11px', 
+                      color: '#856404',
+                      background: 'rgba(255, 193, 7, 0.15)',
+                      padding: '4px 6px',
+                      borderRadius: '3px',
+                      marginTop: '6px'
+                    }}>
+                      💡 {result.suggestion}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Help Text */}
+        <div style={{
+          marginTop: '16px',
+          padding: '8px',
+          background: '#d1ecf1',
+          border: '1px solid #bee5eb',
+          borderRadius: '4px',
+          fontSize: '11px',
+          color: '#0c5460'
+        }}>
+          💡 Configure test values above, then click "Run Test" to execute the workflow and see detailed results
+        </div>
+      </div>
     </div>
   );
 };

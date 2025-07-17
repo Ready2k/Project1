@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import Testing from './Testing';
 
-const Sidebar = ({ nodes, edges, onTestFlow, testCases, onLoadTestCase }) => {
+const Sidebar = ({ nodes, edges, testCases, onLoadTestCase }) => {
   const [showTestCases, setShowTestCases] = useState(false);
 
   const onDragStart = (event, nodeType) => {
@@ -56,12 +55,7 @@ const Sidebar = ({ nodes, edges, onTestFlow, testCases, onLoadTestCase }) => {
       <div style={{ marginTop: '30px' }}>
         <h3>Actions</h3>
         
-        {/* Unified Testing Component */}
-        <Testing 
-          nodes={nodes}
-          edges={edges}
-          onTestFlow={onTestFlow}
-        />
+        {/* Testing moved to top toolbar */}
 
         {/* Showcase Examples Button */}
         <button 
