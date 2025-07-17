@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 const Toolbar = ({ nodes, edges, onLoadFlow, onImportWorkflows, onTestFlow, currentFlowInfo, validation, showValidation, setShowValidation, onShowAIChat, workflows, activeWorkflowId }) => {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -904,6 +904,48 @@ const TestPanel = ({ nodes, edges, onTestFlow, onClose }) => {
   const [testResults, setTestResults] = useState(null);
   const [testConfig, setTestConfig] = useState({});
   const [detectedVariables, setDetectedVariables] = useState([]);
+  
+  // Draggable functionality
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  // Mouse event handlers for dragging
+  const handleMouseDown = useCallback((e) => {
+    if (e.target.closest('.drag-handle')) {
+      setIsDragging(true);
+      const rect = e.currentTarget.getBoundingClientRect();
+      setDragOffset({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      });
+    }
+  }, []);
+
+  const handleMouseMove = useCallback((e) => {
+    if (isDragging) {
+      setPosition({
+        x: e.clientX - dragOffset.x,
+        y: e.clientY - dragOffset.y
+      });
+    }
+  }, [isDragging, dragOffset]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Add global mouse event listeners when dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   // Analyze nodes to detect system variables and session variables used in conditions
   useEffect(() => {
@@ -1022,44 +1064,73 @@ const TestPanel = ({ nodes, edges, onTestFlow, onClose }) => {
       left: 0,
       right: 0,
       bottom: 0,
-      background: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 10000
+      background: 'rgba(0,0,0,0.3)',
+      zIndex: 10000,
+      pointerEvents: isDragging ? 'none' : 'auto'
     }}>
-      <div style={{
-        background: 'white',
-        padding: '30px',
-        borderRadius: '12px',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-        minWidth: '600px',
-        maxWidth: '800px',
-        maxHeight: '80vh',
-        overflowY: 'auto'
-      }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '20px'
+      <div 
+        onMouseDown={handleMouseDown}
+        style={{
+          position: 'absolute',
+          top: position.y || '10%',
+          left: position.x || '20%',
+          background: 'white',
+          padding: '0',
+          borderRadius: '12px',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+          minWidth: '600px',
+          maxWidth: '800px',
+          maxHeight: '80vh',
+          cursor: isDragging ? 'grabbing' : 'default',
+          userSelect: 'none',
+          pointerEvents: 'auto'
         }}>
-          <h3 style={{ margin: 0, color: '#333', fontSize: '18px' }}>
-            🧪 Test Configuration & Execution
-          </h3>
+        <div 
+          className="drag-handle"
+          style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: '20px',
+            padding: '15px 20px',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            borderRadius: '12px 12px 0 0',
+            margin: '-30px -30px 20px -30px',
+            cursor: isDragging ? 'grabbing' : 'grab',
+            userSelect: 'none'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '16px' }}>⋮⋮</span>
+            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>
+              🧪 Test Configuration & Execution
+            </h3>
+          </div>
           <button
             onClick={onClose}
             style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '20px',
+              background: 'rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '4px',
+              fontSize: '16px',
               cursor: 'pointer',
-              color: '#666'
+              color: 'white',
+              padding: '4px 8px',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = 'rgba(255,255,255,0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = 'rgba(255,255,255,0.2)';
             }}
           >
             ✕
           </button>
         </div>
+
+        <div style={{ padding: '0 30px 30px 30px' }}>>
 
         {/* Configuration Section */}
         {detectedVariables.length > 0 ? (
@@ -1257,17 +1328,18 @@ const TestPanel = ({ nodes, edges, onTestFlow, onClose }) => {
           </div>
         )}
 
-        {/* Help Text */}
-        <div style={{
-          marginTop: '16px',
-          padding: '8px',
-          background: '#d1ecf1',
-          border: '1px solid #bee5eb',
-          borderRadius: '4px',
-          fontSize: '11px',
-          color: '#0c5460'
-        }}>
-          💡 Configure test values above, then click "Run Test" to execute the workflow and see detailed results
+          {/* Help Text */}
+          <div style={{
+            marginTop: '16px',
+            padding: '8px',
+            background: '#d1ecf1',
+            border: '1px solid #bee5eb',
+            borderRadius: '4px',
+            fontSize: '11px',
+            color: '#0c5460'
+          }}>
+            💡 Configure test values above, then click "Run Test" to execute the workflow and see detailed results
+          </div>
         </div>
       </div>
     </div>
