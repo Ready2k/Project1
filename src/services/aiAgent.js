@@ -577,11 +577,18 @@ class AIFlowAgent {
     if (lowerInput.includes('password') || lowerInput.includes('strength')) keywords.push('validation');
     if (lowerInput.includes('decision') || lowerInput.includes('condition')) keywords.push('decision');
 
+    // Comprehensive flow keywords
+    if (lowerInput.includes('all node types') || lowerInput.includes('use all') ||
+      lowerInput.includes('comprehensive') || lowerInput.includes('complete flow')) {
+      keywords.push('comprehensive');
+    }
+
     return keywords;
   }
 
   // Identify flow type from keywords
   identifyFlowType(keywords) {
+    if (keywords.includes('comprehensive')) return 'decision'; // Use decision for comprehensive flows
     if (keywords.includes('calculation')) return 'calculation';
     if (keywords.includes('validation')) return 'validation';
     if (keywords.includes('decision')) return 'decision';
@@ -847,8 +854,81 @@ class AIFlowAgent {
         source: previousNodeId,
         target: endNodeId
       });
+    } else if (intent.flowType === 'decision' || intent.originalInput.toLowerCase().includes('all node types') || intent.originalInput.toLowerCase().includes('use all')) {
+      // Create a comprehensive flow using all node types
+
+      // Add a condition node
+      const conditionNodeId = `node_${nodeId++}`;
+      nodes.push({
+        id: conditionNodeId,
+        type: 'condition',
+        position: { x: 200, y: yPosition },
+        data: {
+          label: 'Decision Point',
+          condition: intent.entities.validationRule || 'value > 50'
+        }
+      });
+
+      edges.push({
+        id: `edge_${previousNodeId}_${conditionNodeId}`,
+        source: previousNodeId,
+        target: conditionNodeId
+      });
+
+      yPosition += 100;
+
+      // Add a function node on the TRUE path
+      const functionNodeId = `node_${nodeId++}`;
+      nodes.push({
+        id: functionNodeId,
+        type: 'function',
+        position: { x: 350, y: yPosition },
+        data: {
+          label: 'Process Data',
+          code: intent.entities.formula || 'return value * 2;'
+        }
+      });
+
+      edges.push({
+        id: `edge_${conditionNodeId}_${functionNodeId}`,
+        source: conditionNodeId,
+        target: functionNodeId,
+        sourceHandle: 'true'
+      });
+
+      // Success end node after function
+      const successEndId = `node_${nodeId++}`;
+      nodes.push({
+        id: successEndId,
+        type: 'end',
+        position: { x: 350, y: yPosition + 100 },
+        data: { label: 'Success' }
+      });
+
+      edges.push({
+        id: `edge_${functionNodeId}_${successEndId}`,
+        source: functionNodeId,
+        target: successEndId
+      });
+
+      // Failure end node on FALSE path
+      const failureEndId = `node_${nodeId++}`;
+      nodes.push({
+        id: failureEndId,
+        type: 'end',
+        position: { x: 50, y: yPosition },
+        data: { label: 'Failure' }
+      });
+
+      edges.push({
+        id: `edge_${conditionNodeId}_${failureEndId}`,
+        source: conditionNodeId,
+        target: failureEndId,
+        sourceHandle: 'false'
+      });
+
     } else {
-      // Simple end node
+      // Simple end node for basic flows
       const endNodeId = `node_${nodeId++}`;
       nodes.push({
         id: endNodeId,

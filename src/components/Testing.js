@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 
 const Testing = ({ nodes, edges, onTestFlow }) => {
-  const [testResults, setTestResults] = useState(null);
+  const [testResults] = useState(null);
   const [testConfig, setTestConfig] = useState({});
   const [detectedVariables, setDetectedVariables] = useState([]);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Keep these for potential future use when we integrate toolbar test with sidebar config
+  // eslint-disable-next-line no-unused-vars
+  const [, setTestResultsInternal] = useState(null);
 
   // Analyze nodes to detect system variables and session variables used in conditions
   useEffect(() => {
@@ -124,7 +128,8 @@ const Testing = ({ nodes, edges, onTestFlow }) => {
     setTestConfig(newConfig);
   };
 
-  // Re-analyze nodes to detect any changes in conditions
+  // Re-analyze nodes to detect any changes in conditions (kept for potential future use)
+  // eslint-disable-next-line no-unused-vars
   const reAnalyzeNodes = () => {
     console.log('Re-analyzing nodes for changes before test...');
     console.log('Current nodes received by Testing component:', nodes.map(n => ({ 
@@ -230,14 +235,14 @@ const Testing = ({ nodes, edges, onTestFlow }) => {
     return testConfig;
   };
 
-  // Run test with current configuration
-  const runTest = () => {
-    // Re-analyze nodes to catch any changes in conditions
-    const currentConfig = reAnalyzeNodes();
-    console.log('Running test with config:', currentConfig);
-    const results = onTestFlow(currentConfig);
-    setTestResults(results);
-  };
+  // Run test with current configuration (kept for potential future use)
+  // const runTest = () => {
+  //   // Re-analyze nodes to catch any changes in conditions
+  //   const currentConfig = reAnalyzeNodes();
+  //   console.log('Running test with config:', currentConfig);
+  //   const results = onTestFlow(currentConfig);
+  //   setTestResults(results);
+  // };
 
   return (
     <div style={{ marginBottom: '15px' }}>
@@ -370,23 +375,18 @@ const Testing = ({ nodes, edges, onTestFlow }) => {
             </div>
           )}
 
-          {/* Test Button */}
-          <button 
-            onClick={runTest}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              background: '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 'bold'
-            }}
-          >
-            🚀 Run Test
-          </button>
+          {/* Configuration Info */}
+          <div style={{
+            padding: '8px',
+            background: '#e8f5e8',
+            border: '1px solid #c3e6c3',
+            borderRadius: '4px',
+            fontSize: '11px',
+            color: '#2e7d32',
+            textAlign: 'center'
+          }}>
+            💡 Configuration ready! Use "🧪 Run Test" in the top toolbar to execute.
+          </div>
 
           {/* Test Results */}
           {testResults && (

@@ -1232,6 +1232,7 @@ function App() {
                 edges={edges}
                 onLoadFlow={loadFlow}
                 onImportWorkflows={importWorkflows}
+                onTestFlow={testFlowWithAnimation}
                 currentFlowInfo={currentFlowInfo}
                 validation={validation}
                 showValidation={showValidation}

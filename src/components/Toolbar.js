@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 
-const Toolbar = ({ nodes, edges, onLoadFlow, onImportWorkflows, currentFlowInfo, validation, showValidation, setShowValidation, onShowAIChat, workflows, activeWorkflowId }) => {
+const Toolbar = ({ nodes, edges, onLoadFlow, onImportWorkflows, onTestFlow, currentFlowInfo, validation, showValidation, setShowValidation, onShowAIChat, workflows, activeWorkflowId }) => {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [flowName, setFlowName] = useState('');
@@ -420,6 +420,44 @@ const Toolbar = ({ nodes, edges, onLoadFlow, onImportWorkflows, currentFlowInfo,
         </button>
 
 
+
+        {/* Test Flow Button */}
+        <button
+          onClick={() => {
+            // Simple test execution - we'll enhance this to work with the sidebar's test config
+            if (typeof onTestFlow === 'function') {
+              onTestFlow({});
+            } else {
+              console.warn('Test function not available');
+            }
+          }}
+          style={{
+            background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+            border: '1px solid rgba(255,255,255,0.3)',
+            color: 'white',
+            padding: '8px 16px',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.transform = 'translateY(-1px)';
+            e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.transform = 'translateY(0)';
+            e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+          }}
+          title="Run test on current workflow"
+        >
+          🧪 Run Test
+        </button>
 
         {/* AI Chat Button */}
         <button
