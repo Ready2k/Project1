@@ -1260,8 +1260,20 @@ const TestPanel = ({ nodes, edges, onTestFlow, onClose }) => {
         {/* Test Results */}
         {testResults && (
           <div>
-            <h4 style={{ fontSize: '14px', margin: '0 0 12px 0', color: '#333' }}>
-              📊 Test Results & Workings:
+            <h4 style={{ 
+              fontSize: '14px', 
+              margin: '0 0 12px 0', 
+              color: '#000 !important', 
+              fontWeight: 'bold',
+              background: '#ffffff',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              border: '1px solid #000',
+              textShadow: 'none',
+              WebkitTextFillColor: '#000',
+              MozTextFillColor: '#000'
+            }}>
+              <span style={{ color: '#000 !important' }}>📊 Test Results & Workings:</span>
             </h4>
             <div style={{
               background: '#f8f9fa',
@@ -1284,7 +1296,7 @@ const TestPanel = ({ nodes, edges, onTestFlow, onClose }) => {
                                          result.message.includes('⚠️') ? 'rgba(255, 193, 7, 0.2)' :
                                          'rgba(0, 0, 0, 0.1)')
                 }}>
-                  <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                  <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#856404' }}>
                     <strong>{result.nodeId}:</strong> {result.message}
                   </div>
                   
